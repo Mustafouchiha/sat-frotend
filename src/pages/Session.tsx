@@ -33,7 +33,7 @@ interface DuelSummary {
   me?: string;
 }
 
-/** Chess.com uslubidagi "+12" / "−8" animatsiyasi. */
+/** Javobdan keyingi reyting o'zgarishi animatsiyasi: "+12" / "−8". */
 function RatingDelta({ delta, k }: { delta: number; k: number }) {
   if (!delta) return null;
   return (
