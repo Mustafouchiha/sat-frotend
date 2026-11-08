@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Telegram tema ranglari (telegram-web-app.js avtomatik --tg-theme-* o'zgaruvchilarini o'rnatadi) */
+:root {
+  --bg: var(--tg-theme-secondary-bg-color, #f3f4f8);
+  --card: var(--tg-theme-bg-color, #ffffff);
+  --text: var(--tg-theme-text-color, #0f172a);
+  --hint: var(--tg-theme-hint-color, #64748b);
+  --accent: var(--tg-theme-button-color, #4f46e5);
+  --accent-text: var(--tg-theme-button-text-color, #ffffff);
+  --link: var(--tg-theme-link-color, #4f46e5);
+  --line: rgba(127, 127, 127, 0.18);
+  --soft: rgba(127, 127, 127, 0.08);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.in-telegram) {
+    --bg: #0b1020;
+    --card: #141b2f;
+    --text: #e5e7eb;
+    --hint: #94a3b8;
+    --accent: #6366f1;
+    --link: #818cf8;
+    color-scheme: dark;
+  }
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+button {
+  font: inherit;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  color: var(--text);
+  background: var(--card);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+/* Test vaqtida matnni nusxalashni cheklash */
+.no-copy,
+.no-copy * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+/* iOS WebView: user-select:none input'ga yozishni bloklaydi — javob maydonlari ochiq qoladi */
+.no-copy input,
+.no-copy textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.math-text {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.math-text .katex {
+  font-size: 1.08em;
+}
+.math-text .katex-display {
+  margin: 0.6em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
+}
+
+.svg-figure svg {
+  max-width: 100%;
+  height: auto;
+  color: var(--text);
+}
+
+.strike {
+  text-decoration: line-through;
+  opacity: 0.45;
+}
+
+.pb-safe {
+  padding-bottom: calc(var(--safe-bottom) + 0.75rem);
+}
