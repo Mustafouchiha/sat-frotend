@@ -2,13 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { CropArea, ImageDrop, uploadTemplateImage } from '../../components/ImageTools';
 import { Page } from '../../components/Layout';
 import { MathText } from '../../components/MathText';
 import { QuestionView } from '../../components/QuestionView';
 import { toast } from '../../components/Toast';
 import { Badge, Button, Card, ErrorBox, Field, inputCls, Loading, SectionTitle, Segmented, Sheet } from '../../components/ui';
-import { api, ApiError, errorText } from '../../lib/api';
+import { api, ApiError, errorText, mediaUrl } from '../../lib/api';
 import { fmtDate } from '../../lib/format';
+import { encodeImage, padRect, pickImage, type PickedImage, type Rect } from '../../lib/image';
 import type { ReviewQuestion } from '../../lib/types';
 import { hasRole, useAuth } from '../../store/auth';
 import { useTaxonomy } from '../Practice';
@@ -228,7 +230,7 @@ export default function TemplateEditor() {
   };
 
   const preview = useMutation({
-    mutationFn: () => api<{ variants: Variant[] }>('/templates/preview', { body: { spec: currentSpec(), count: 10 } }),
+    mutationFn: (s?: Spec) => api<{ variants: Variant[] }>('/templates/preview', { body: { spec: s ?? currentSpec(), count: 10 } }),
     onSuccess: (r) => {
       setVariants(r.variants);
       setErrors([]);
@@ -258,27 +260,12 @@ export default function TemplateEditor() {
     onError: handleErr,
   });
 
-  const upload = async (file: File) => {
-    if (file.size > 2 * 1024 * 1024) return toast('Rasm 2 MB dan katta', { kind: 'error' });
-    const data = await new Promise<string>((res) => {
-      const r = new FileReader();
-      r.onload = () => res(String(r.result));
-      r.readAsDataURL(file);
-    });
-    try {
-      const m = await api<{ id: string }>('/media', { body: { mime: file.type, data } });
-      setMeta((s) => ({ ...s, imageId: m.id }));
-      toast('Rasm yuklandi', { icon: '🖼' });
-    } catch (e) {
-      toast(errorText(e), { kind: 'error' });
-    }
-  };
-
   if (!isNew && existing.isLoading) return <Loading />;
   if (!isNew && existing.error) return <Page back><ErrorBox error={existing.error} /></Page>;
 
   const setVar = (i: number, patch: Partial<Var>) => setSpec((s) => ({ ...s, variables: s.variables.map((v, j) => (j === i ? { ...v, ...patch } : v)) }));
   const ans = spec.answer;
+  const previewImage = meta.imageId ? `/api/media/${meta.imageId}` : undefined;
   const reports = (existing.data?.reports as Array<{ id: string; message: string; seed: number | null; templateVersion: number | null; createdAt: string }>) ?? [];
 
   return (
@@ -371,8 +358,9 @@ export default function TemplateEditor() {
         }}
         onAi={
           isOperator
-            ? (r) => {
-                setSpec(normalizeSpec(r.spec));
+            ? (r, imageId) => {
+                const next = normalizeSpec(r.spec);
+                setSpec(next);
                 setMeta((m) => ({
                   ...m,
                   title: m.title || r.meta.title,
@@ -380,10 +368,14 @@ export default function TemplateEditor() {
                   domainId: r.meta.domainId ?? m.domainId,
                   skillId: r.meta.skillId ?? m.skillId,
                   difficulty: r.meta.difficulty,
+                  ...(imageId ? { imageId } : {}),
                 }));
                 setReport(r.report);
                 setErrors(r.validation.errors ?? []);
                 setMode('form');
+                // Natijani darhol ko'rsatish: 10 ta variant (chizma bilan)
+                if (r.validation.ok) preview.mutate(cleanSpec(next));
+                toast("AI taklifi formaga qo'yildi — tekshirib, saqlang", { icon: '✨' });
               }
             : undefined
         }
@@ -423,23 +415,16 @@ export default function TemplateEditor() {
               <textarea className={`${inputCls} font-mono text-sm`} rows={3} value={spec.explanation ?? ''} onChange={(e) => setSpec({ ...spec, explanation: e.target.value })} />
             </Field>
             <details>
-              <summary className="cursor-pointer text-sm text-link">SVG chizma (ixtiyoriy) va rasm</summary>
+              <summary className="cursor-pointer text-sm text-link">
+                SVG chizma (ixtiyoriy, sonlari variantlar bilan o'zgaradi) {spec.svg?.trim() ? <Badge color="#16a34a">bor</Badge> : null}
+              </summary>
               <Field label="SVG (o'zgaruvchilar bilan)">
-                <textarea className={`${inputCls} font-mono text-xs`} rows={4} value={spec.svg ?? ''} onChange={(e) => setSpec({ ...spec, svg: e.target.value })} />
+                <textarea className={`${inputCls} font-mono text-xs`} rows={6} value={spec.svg ?? ''} onChange={(e) => setSpec({ ...spec, svg: e.target.value })} />
               </Field>
-              <div className="flex items-center gap-2 text-sm">
-                <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => e.target.files?.[0] && void upload(e.target.files[0])} />
-                {meta.imageId && (
-                  <>
-                    <Badge color="#16a34a">🖼 {meta.imageId.slice(0, 8)}</Badge>
-                    <button className="text-xs text-red-500" onClick={() => setMeta({ ...meta, imageId: null })}>
-                      olib tashlash
-                    </button>
-                  </>
-                )}
-              </div>
             </details>
           </Box>
+
+          <TemplateImageBox imageId={meta.imageId} onChange={(imageId) => setMeta((m) => ({ ...m, imageId }))} />
 
           <Box
             title="O'zgaruvchilar"
@@ -648,7 +633,7 @@ export default function TemplateEditor() {
                   <span>#{i + 1} · seed {v.seed}</span>
                   <span>{v.attempts} urinish</span>
                 </div>
-                <QuestionView q={v} answer={v.correctLabel} disabled reveal={{ correctLabel: v.correctLabel, correctDisplay: v.correctDisplay, isCorrect: true }} />
+                <QuestionView q={{ ...v, imageUrl: previewImage }} answer={v.correctLabel} disabled reveal={{ correctLabel: v.correctLabel, correctDisplay: v.correctDisplay, isCorrect: true }} />
                 <div className="mt-2 text-sm">
                   To'g'ri: <b>{v.correctDisplay}</b>
                 </div>
@@ -757,30 +742,165 @@ function ReportItem({ templateId, r }: { templateId: string; r: { id: string; me
   );
 }
 
+/** Shablonga rasm biriktirish: tanlash → (ixtiyoriy) kerakli qismini belgilash → siqib yuklash. */
+function TemplateImageBox({ imageId, onChange }: { imageId: string | null; onChange: (id: string | null) => void }) {
+  const [picked, setPicked] = useState<PickedImage | null>(null);
+  const [rect, setRect] = useState<Rect | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => () => void (picked && URL.revokeObjectURL(picked.url)), [picked]);
+
+  const choose = async (f: File) => {
+    try {
+      setPicked(await pickImage(f));
+      setRect(null);
+    } catch (e) {
+      toast(errorText(e), { kind: 'error' });
+    }
+  };
+  const attach = async () => {
+    if (!picked) return;
+    setBusy(true);
+    try {
+      onChange(await uploadTemplateImage(picked, rect));
+      setPicked(null);
+      toast('Rasm biriktirildi — saqlashni unutmang', { icon: '🖼' });
+    } catch (e) {
+      toast(errorText(e), { kind: 'error' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Box
+      title="🖼 Rasm (ixtiyoriy)"
+      right={
+        imageId && !picked ? (
+          <button className="text-sm text-red-500" onClick={() => onChange(null)}>
+            olib tashlash
+          </button>
+        ) : undefined
+      }
+    >
+      <p className="mb-2 text-xs text-hint">
+        Rasm savol ustida barcha variantlarda bir xil chiqadi, shuning uchun undagi sonlar o'zgaruvchi bo'lmasin. Sonlari o'zgaradigan chizma uchun SVG ishlating (AI rasmdan SVG chizib bera oladi).
+      </p>
+      {picked ? (
+        <>
+          <CropArea image={picked} rect={rect} onChange={setRect} />
+          <p className="mt-1 text-center text-xs text-hint">
+            {rect ? `Belgilangan qism: ${Math.round(rect.width)}×${Math.round(rect.height)} px` : "Faqat bir qismi kerak bo'lsa, rasm ustida to'rtburchak chizing"}
+          </p>
+          <div className="mt-2 flex flex-wrap justify-center gap-2">
+            <Button size="sm" loading={busy} onClick={() => void attach()}>
+              {rect ? '✂️ Belgilangan qismni biriktirish' : '📎 Butun rasmni biriktirish'}
+            </Button>
+            {rect && (
+              <Button size="sm" variant="secondary" onClick={() => setRect(null)}>
+                Belgini o'chirish
+              </Button>
+            )}
+            <Button size="sm" variant="secondary" onClick={() => setPicked(null)}>
+              Bekor qilish
+            </Button>
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {imageId && <img src={mediaUrl(`/api/media/${imageId}`)} alt="" className="mx-auto max-h-48 rounded-xl border border-line" />}
+          <ImageDrop onFile={(f) => void choose(f)} label={imageId ? 'Boshqa rasm tanlash' : 'Rasm tanlash'} compact={Boolean(imageId)} />
+        </div>
+      )}
+    </Box>
+  );
+}
+
+interface OriginalCheck {
+  answerMatches: boolean;
+  expected: number | null;
+  got: number | null;
+  problems: string[];
+}
+
 interface AiResult {
   spec: Partial<Spec>;
   meta: { title: string; section: 'MATH' | 'RW'; domainId: string | null; skillId: string | null; difficulty: 'EASY' | 'MEDIUM' | 'HARD' };
-  suggestion: { notes: string; distractors: Array<{ expr: string; mistake: string }> };
+  suggestion: { notes: string; transcript: string; distractors: Array<{ expr: string; mistake: string }>; svgDropped: boolean };
+  /** AI chizmani SVG qila olmaganda: chizma joylashgan qism (yuborilgan rasm pikselida) */
+  figureBox: Rect | null;
+  original: OriginalCheck | null;
   validation: { ok: boolean; errors: string[] };
   report: Report | null;
   model: string;
 }
 
-/** 3.2: tayyor savoldan shablon — sonlarni topish va (ixtiyoriy) Claude AI taklifi. */
-function FromPlainText({ onApply, onAi }: { onApply: (stem: string, vars: Var[]) => void; onAi?: (r: AiResult) => void }) {
+const fmtNum = (x: number | null) => (x === null ? '—' : String(Number.isInteger(x) ? x : Number(x.toFixed(4))));
+
+function OriginalCheckView({ o }: { o: OriginalCheck }) {
+  const good = o.answerMatches && o.problems.length === 0;
+  return (
+    <div className={clsx('mb-2 rounded-lg p-2 text-xs', good ? 'bg-green-500/10' : 'bg-orange-500/10')}>
+      {o.answerMatches
+        ? `✅ Asl savoldagi sonlar bilan formula to'g'ri javob beradi: ${fmtNum(o.got)}`
+        : o.expected !== null && o.got !== null
+          ? `❌ Asl savolning javobi ${fmtNum(o.expected)}, shablon formulasi esa ${fmtNum(o.got)} beradi — formulani tekshiring`
+          : "⚠️ Shablonni asl savol bilan tekshirib bo'lmadi"}
+      {o.problems.length > 0 && (
+        <ul className="mt-1 list-disc pl-4">
+          {o.problems.map((p, i) => (
+            <li key={i}>{p}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** 3.2: tayyor savoldan shablon — sonlarni topish va (ixtiyoriy) Claude AI taklifi matn yoki rasmdan. */
+function FromPlainText({ onApply, onAi }: { onApply: (stem: string, vars: Var[]) => void; onAi?: (r: AiResult, imageId: string | null) => void }) {
   const [text, setText] = useState('');
   const [nums, setNums] = useState<Array<{ index: number; length: number; raw: string; value: number; name: string; on: boolean; suggestion: Var }>>([]);
   const [ai, setAi] = useState<AiResult | null>(null);
+  const [img, setImg] = useState<PickedImage | null>(null);
+  const [crop, setCrop] = useState<Rect | null>(null);
+  const [attachFigure, setAttachFigure] = useState(true);
+  const [applying, setApplying] = useState(false);
+  useEffect(() => () => void (img && URL.revokeObjectURL(img.url)), [img]);
+
   const find = useMutation({
     mutationFn: () => api<{ numbers: Array<{ index: number; length: number; raw: string; value: number; suggestedName: string; suggestion: Var }> }>('/templates/templatize', { body: { text } }),
     onSuccess: (r) => setNums(r.numbers.map((n) => ({ ...n, name: n.suggestedName, on: true }))),
     onError: (e) => toast(errorText(e), { kind: 'error' }),
   });
   const aiMut = useMutation({
-    mutationFn: () => api<AiResult>('/templates/ai-suggest', { body: { text } }),
-    onSuccess: (r) => setAi(r),
+    mutationFn: async () => {
+      // Claude rasmni uzun tomoni 2576 px va 3.75 MP gacha to'liq ko'radi — shu chegaradan oshmaydi, koordinatalar 1:1 qoladi
+      const enc = img ? encodeImage(img, { maxEdge: 2576, maxPixels: 3_700_000, maxBytes: 2_600_000 }) : null;
+      const r = await api<AiResult>('/templates/ai-suggest', {
+        body: { ...(text.trim() ? { text: text.trim() } : {}), ...(enc ? { image: { mime: enc.mime, data: enc.data } } : {}) },
+      });
+      return { r, sentWidth: enc?.width ?? 0 };
+    },
+    onSuccess: ({ r, sentWidth }) => {
+      setAi(r);
+      setAttachFigure(true);
+      // Yuborilgan (kichraytirilgan) rasm koordinatalarini asl rasmga o'tkazish
+      if (r.figureBox && img && sentWidth) {
+        const k = img.width / sentWidth;
+        setCrop(padRect({ x: r.figureBox.x * k, y: r.figureBox.y * k, width: r.figureBox.width * k, height: r.figureBox.height * k }, img.width, img.height));
+      } else setCrop(null);
+    },
     onError: (e) => toast(errorText(e), { kind: 'error' }),
   });
+  const chooseImage = async (f: File) => {
+    try {
+      setImg(await pickImage(f));
+      setAi(null);
+      setCrop(null);
+    } catch (e) {
+      toast(errorText(e), { kind: 'error' });
+    }
+  };
   const apply = () => {
     const picks = nums.filter((n) => n.on).sort((a, b) => b.index - a.index);
     let out = text;
@@ -788,24 +908,76 @@ function FromPlainText({ onApply, onAi }: { onApply: (stem: string, vars: Var[])
     onApply(out, nums.filter((n) => n.on).map((n) => ({ ...n.suggestion, name: n.name })));
     toast("Shablonga aylantirildi — endi javob formulasini yozing", { icon: '✍️' });
   };
+  const applyAi = async () => {
+    if (!ai || !onAi) return;
+    let imageId: string | null = null;
+    if (img && crop && attachFigure) {
+      setApplying(true);
+      try {
+        imageId = await uploadTemplateImage(img, crop);
+      } catch (e) {
+        toast(errorText(e), { kind: 'error' });
+        return;
+      } finally {
+        setApplying(false);
+      }
+    }
+    onAi(ai, imageId);
+  };
+
   return (
     <details className="mb-3 rounded-2xl bg-card p-4">
-      <summary className="cursor-pointer font-semibold">🪄 Tayyor savoldan shablon yasash {onAi ? '(+ AI yordamchi)' : ''}</summary>
+      <summary className="cursor-pointer font-semibold">🪄 Tayyor savoldan shablon yasash {onAi ? '(matn yoki rasm + AI)' : ''}</summary>
       <p className="my-2 text-xs text-hint">
-        Markaz o'zi tuzgan yoki litsenziyaga ega savolni yopishtiring. Rasmiy College Board savollarini so'zma-so'z kiritmang.
+        Markaz o'zi tuzgan yoki litsenziyaga ega savolni yopishtiring{onAi ? ' yoki rasmini (skrinshot, foto) yuklang' : ''}. Rasmiy College Board savollarini so'zma-so'z kiritmang — AI matnni o'z so'zlari bilan qayta yozadi.
       </p>
-      <textarea className={inputCls} rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder="If 3x + 7 = 22, what is the value of x?" />
+      {onAi &&
+        (img ? (
+          <div className="mb-2 flex items-start gap-3">
+            <img src={img.url} alt="" className="max-h-40 max-w-[60%] rounded-xl border border-line object-contain" />
+            <div className="flex flex-col gap-2 text-xs text-hint">
+              <span>
+                {img.width}×{img.height} px
+              </span>
+              <ImageDrop onFile={(f) => void chooseImage(f)} label="Boshqa rasm" compact />
+              <button
+                className="text-left text-red-500"
+                onClick={() => {
+                  setImg(null);
+                  setAi(null);
+                  setCrop(null);
+                }}
+              >
+                ✕ rasmni olib tashlash
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-2">
+            <ImageDrop onFile={(f) => void chooseImage(f)} label="Savol rasmini yuklash (skrinshot yoki foto)" />
+          </div>
+        ))}
+      <textarea
+        className={inputCls}
+        rows={img ? 2 : 4}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder={img ? "Qo'shimcha izoh (ixtiyoriy): masalan, «faqat burchakni o'zgartir» yoki «javobni SPR qil»" : 'If 3x + 7 = 22, what is the value of x?'}
+      />
       <div className="mt-2 flex flex-wrap gap-2">
-        <Button size="sm" variant="secondary" disabled={!text.trim()} loading={find.isPending} onClick={() => find.mutate()}>
-          🔢 Sonlarni topish
-        </Button>
+        {!img && (
+          <Button size="sm" variant="secondary" disabled={!text.trim()} loading={find.isPending} onClick={() => find.mutate()}>
+            🔢 Sonlarni topish
+          </Button>
+        )}
         {onAi && (
-          <Button size="sm" variant="secondary" disabled={text.trim().length < 10} loading={aiMut.isPending} onClick={() => aiMut.mutate()}>
-            ✨ AI taklifi (Claude)
+          <Button size="sm" variant={img ? 'primary' : 'secondary'} disabled={!img && text.trim().length < 10} loading={aiMut.isPending} onClick={() => aiMut.mutate()}>
+            ✨ {img ? 'Rasmdan shablon (Claude)' : 'AI taklifi (Claude)'}
           </Button>
         )}
       </div>
-      {nums.length > 0 && (
+      {aiMut.isPending && <p className="mt-2 text-xs text-hint">Claude savolni o'qib, yechib, shablon tuzmoqda — odatda 30–90 soniya…</p>}
+      {nums.length > 0 && !img && (
         <div className="mt-3">
           <div className="mb-2 text-sm text-hint">Qaysi sonlar o'zgaruvchi bo'ladi?</div>
           <div className="flex flex-wrap gap-2">
@@ -826,6 +998,15 @@ function FromPlainText({ onApply, onAi }: { onApply: (stem: string, vars: Var[])
         <div className="mt-3 rounded-xl bg-soft p-3 text-sm">
           <div className="mb-1 font-semibold">✨ AI taklifi ({ai.model})</div>
           <div className="mb-2 text-hint">{ai.suggestion.notes}</div>
+          {ai.original && <OriginalCheckView o={ai.original} />}
+          {ai.suggestion.transcript && (
+            <details className="mb-2">
+              <summary className="cursor-pointer text-xs text-link">AI o'qigan asl savol</summary>
+              <div className="mt-1 whitespace-pre-wrap rounded-lg bg-card p-2 text-xs">
+                <MathText text={ai.suggestion.transcript} />
+              </div>
+            </details>
+          )}
           {ai.suggestion.distractors.length > 0 && (
             <ul className="mb-2 list-disc pl-5 text-xs">
               {ai.suggestion.distractors.map((d, i) => (
@@ -835,11 +1016,22 @@ function FromPlainText({ onApply, onAi }: { onApply: (stem: string, vars: Var[])
               ))}
             </ul>
           )}
+          {ai.spec.svg && <div className="mb-2 text-xs">🖼 Chizma SVG qilib qayta chizildi — undagi sonlar variantlar bilan o'zgaradi. Preview'da tekshiring.</div>}
+          {ai.suggestion.svgDropped && <div className="mb-2 text-xs text-orange-600">AI chizgan SVG xavfsizlik tekshiruvidan o'tmadi va olib tashlandi.</div>}
+          {img && crop && (
+            <div className="mb-2">
+              <label className="mb-1 flex items-center gap-2 text-xs font-medium">
+                <input type="checkbox" checked={attachFigure} onChange={(e) => setAttachFigure(e.target.checked)} />
+                Chizmani rasm sifatida biriktirish (noto'g'ri belgilangan bo'lsa, rasm ustida qayta chizing)
+              </label>
+              {attachFigure && <CropArea image={img} rect={crop} onChange={(r) => setCrop((c) => r ?? c)} maxHeight={260} />}
+            </div>
+          )}
           <div className="mb-2">
             {ai.validation.ok ? <Badge color="#16a34a">Sxema to'g'ri</Badge> : <Badge color="#dc2626">Xatolar: {ai.validation.errors.length}</Badge>}{' '}
             {ai.report && <Badge color={ai.report.ok ? '#16a34a' : '#dc2626'}>100 variant: {ai.report.successes}/100</Badge>}
           </div>
-          <Button size="sm" onClick={() => onAi(ai)}>
+          <Button size="sm" loading={applying} onClick={() => void applyAi()}>
             Formaga qo'llash (saqlanmaydi)
           </Button>
         </div>
