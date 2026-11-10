@@ -86,8 +86,10 @@ export default function Home() {
           <div className="text-right">
             <div className="text-xs text-hint">{t('home.estimated')}</div>
             <div className="text-2xl font-bold text-accent">{r.estimatedSat}</div>
-            <div className="mt-1 flex gap-2 text-xs text-hint">
+            {/* Taxminiy SAT = Math + R&W */}
+            <div className="mt-1 flex gap-1 text-xs text-hint tabular-nums">
               <span>Math {d.stats.ratings.MATH.rating}</span>
+              <span>+</span>
               <span>R&W {d.stats.ratings.RW.rating}</span>
             </div>
           </div>
