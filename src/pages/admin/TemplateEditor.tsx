@@ -976,7 +976,7 @@ function FromPlainText({ onApply, onAi }: { onApply: (stem: string, vars: Var[])
           </Button>
         )}
       </div>
-      {aiMut.isPending && <p className="mt-2 text-xs text-hint">Claude savolni o'qib, yechib, shablon tuzmoqda — odatda 30–90 soniya…</p>}
+      {aiMut.isPending && <p className="mt-2 text-xs text-hint">Claude savolni o'qib, yechib, shablon tuzmoqda — bu 1–2 daqiqa olishi mumkin…</p>}
       {nums.length > 0 && !img && (
         <div className="mt-3">
           <div className="mb-2 text-sm text-hint">Qaysi sonlar o'zgaruvchi bo'ladi?</div>
