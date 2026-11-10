@@ -4,8 +4,12 @@ import { useEffect, type ReactNode } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useT } from '../lib/i18n';
 import { isTelegram, tg } from '../lib/telegram';
+import { useTheme, type ThemeMode } from '../lib/theme';
+import { changeTheme } from '../lib/themeSync';
 import { hasRole, useAuth } from '../store/auth';
 import { Avatar } from './ui';
+
+const NEXT_MODE: Record<ThemeMode, ThemeMode> = { auto: 'light', light: 'dark', dark: 'auto' };
 
 const TAB_ROOTS = ['/', '/practice', '/tests', '/leaderboard', '/profile', '/teacher', '/admin'];
 
@@ -62,6 +66,7 @@ export function SideNav() {
   const qc = useQueryClient();
   const user = useAuth((s) => s.user);
   const logout = useAuth((s) => s.logout);
+  const theme = useTheme((s) => s.theme);
   const staff = hasRole(user, 'OPERATOR', 'TEACHER');
   const items = [
     { to: '/', icon: '🏠', label: t('nav.home') },
@@ -73,10 +78,21 @@ export function SideNav() {
   ];
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-line bg-card px-3 py-5 lg:flex">
-      <Link to="/" className="mb-6 flex items-center gap-2.5 px-3">
-        <img src="/icon.svg" alt="" className="h-9 w-9" />
-        <span className="text-lg font-bold">SAT Prep</span>
-      </Link>
+      <div className="mb-6 flex items-center justify-between gap-2 px-3">
+        <Link to="/" className="flex items-center gap-2.5">
+          <img src="/icon.svg" alt="" className="h-9 w-9" />
+          <span className="text-lg font-bold">SAT Prep</span>
+        </Link>
+        {/* Tez almashtirish: avto → yorug' → qorong'i (batafsil ranglar — Profilda) */}
+        <button
+          onClick={() => changeTheme({ ...theme, mode: NEXT_MODE[theme.mode] })}
+          title={{ auto: t('theme.auto'), light: t('theme.light'), dark: t('theme.dark') }[theme.mode]}
+          aria-label={t('theme.title')}
+          className="rounded-lg px-2 py-1 text-lg hover:bg-soft"
+        >
+          {{ auto: '🌗', light: '☀️', dark: '🌙' }[theme.mode]}
+        </button>
+      </div>
       <nav className="flex flex-col gap-1">
         {items.map((it) => (
           <NavLink

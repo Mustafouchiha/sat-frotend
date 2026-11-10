@@ -21,6 +21,8 @@ export interface User {
   notifyDaily: boolean;
   /** Kompyuterda kirish uchun botga ulangan raqam (yashirilgan: "+998 90 *** ** 67") */
   phone?: string | null;
+  /** Ilova ko'rinishi (rejim va o'z ranglari) — profilda saqlanadi */
+  theme?: import('./theme').ThemePrefs | null;
 }
 
 export interface Title {

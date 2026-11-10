@@ -3,6 +3,7 @@ import { api, ApiError } from '../lib/api';
 import { useLang } from '../lib/i18n';
 import { store } from '../lib/storage';
 import { isTelegram, tg } from '../lib/telegram';
+import { normalizeTheme, useTheme } from '../lib/theme';
 import type { Role, Stats, User } from '../lib/types';
 
 interface MeResponse {
@@ -94,6 +95,8 @@ export const useAuth = create<AuthState>((set, get) => ({
   refresh: async () => {
     const me = await api<MeResponse>('/me');
     set({ user: me.user, groups: me.groups, config: me.config });
+    // Profildagi ko'rinish (boshqa qurilmada o'zgartirilgan bo'lishi mumkin); saqlanmagan mahalliy o'zgarish ustun
+    if (me.user.theme !== undefined && !useTheme.getState().dirty) useTheme.getState().setTheme(normalizeTheme(me.user.theme));
     const lang = useLang.getState();
     if (me.user.lang && me.user.lang !== lang.lang) lang.setLang(me.user.lang);
   },

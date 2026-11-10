@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LineChart } from '../components/LineChart';
 import { Page } from '../components/Layout';
+import { ThemeSettings } from '../components/ThemeSettings';
 import { toast } from '../components/Toast';
 import { Avatar, Badge, Button, Card, Field, inputCls, ProgressBar, SectionTitle, Segmented } from '../components/ui';
 import { api, errorText } from '../lib/api';
@@ -200,6 +201,9 @@ export default function Profile() {
           </div>
         </>
       )}
+
+      <SectionTitle>🎨 {t('theme.title')}</SectionTitle>
+      <ThemeSettings />
 
       <SectionTitle>{t('profile.groups')}</SectionTitle>
       <Card>

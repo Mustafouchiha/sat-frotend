@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import clsx from 'clsx';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Page } from '../../components/Layout';
@@ -10,11 +11,22 @@ import { useT } from '../../lib/i18n';
 import { confirmDialog, downloadFile, shareToTelegram } from '../../lib/telegram';
 import { useAuth } from '../../store/auth';
 
+interface Invite {
+  id: string;
+  code: string;
+  label: string | null;
+  createdAt: string;
+  usedAt: string | null;
+  usedBy: { id: string; name: string; username: string | null } | null;
+}
+
 interface GroupData {
   id: string;
   name: string;
   inviteCode: string;
   leaderboardEnabled: boolean;
+  /** Umumiy kod ishlaydimi (o'chirilsa — faqat shaxsiy kodlar) */
+  openJoin: boolean;
   students: Array<{
     id: string;
     name: string;
@@ -54,7 +66,7 @@ export default function GroupDetail() {
   const nav = useNavigate();
   const qc = useQueryClient();
   const bot = useAuth((s) => s.config.botUsername);
-  const [tab, setTab] = useState<'students' | 'analytics' | 'assignments'>('students');
+  const [tab, setTab] = useState<'students' | 'analytics' | 'assignments' | 'codes'>('students');
   const [assignOpen, setAssignOpen] = useState(false);
   const q = useQuery({ queryKey: ['group', id], queryFn: () => api<GroupData>(`/groups/${id}`) });
   const an = useQuery({ queryKey: ['group-analytics', id], enabled: tab === 'analytics', queryFn: () => api<Analytics>(`/groups/${id}/analytics?days=30`) });
@@ -87,8 +99,10 @@ export default function GroupDetail() {
       <Card className="mb-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <div className="text-xs text-hint">{t('teacher.invite')}</div>
-            <div className="font-mono text-2xl font-black tracking-[0.25em]">{g.inviteCode}</div>
+            <div className="text-xs text-hint">
+              {t('teacher.invite')} {!g.openJoin && <Badge color="#dc2626">{t('invite.off')}</Badge>}
+            </div>
+            <div className={clsx('font-mono text-2xl font-black tracking-[0.25em]', !g.openJoin && 'text-hint line-through')}>{g.inviteCode}</div>
           </div>
           <div className="flex flex-wrap gap-2">
             {inviteLink && (
@@ -118,8 +132,11 @@ export default function GroupDetail() {
           { value: 'students', label: `${t('teacher.students')} (${g.students.length})` },
           { value: 'analytics', label: t('teacher.analytics') },
           { value: 'assignments', label: t('teacher.assignments') },
+          { value: 'codes', label: `🔑 ${t('invite.tab')}` },
         ]}
       />
+
+      {tab === 'codes' && <InvitesTab group={g} bot={bot} />}
 
       {tab === 'students' && (
         <Card className="p-2">
@@ -277,5 +294,162 @@ function AssignSheet({ open, onClose, groupId, onDone }: { open: boolean; onClos
         {t('teacher.newAssignment')}
       </Button>
     </Sheet>
+  );
+}
+
+/** Shaxsiy kirish kodlari: har o'quvchiga alohida, bir martalik; umumiy kodni o'chirib qo'yish mumkin. */
+function InvitesTab({ group, bot }: { group: GroupData; bot: string | null }) {
+  const t = useT();
+  const qc = useQueryClient();
+  const [names, setNames] = useState('');
+  const [count, setCount] = useState('5');
+  const key = ['group-invites', group.id];
+  const list = useQuery({ queryKey: key, queryFn: () => api<Invite[]>(`/groups/${group.id}/invites`) });
+  const nameList = names
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const toggleOpen = useMutation({
+    mutationFn: (v: boolean) => api(`/groups/${group.id}`, { method: 'PATCH', body: { openJoin: v } }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['group', group.id] }),
+    onError: (e) => toast(errorText(e), { kind: 'error' }),
+  });
+  const create = useMutation({
+    mutationFn: (body: { labels?: string[]; count?: number }) => api<Invite[]>(`/groups/${group.id}/invites`, { body }),
+    onSuccess: (created) => {
+      setNames('');
+      void qc.invalidateQueries({ queryKey: key });
+      toast(`🔑 +${created.length}`, { kind: 'success' });
+    },
+    onError: (e) => toast(errorText(e), { kind: 'error' }),
+  });
+  const remove = useMutation({
+    mutationFn: (inviteId: string) => api(`/groups/${group.id}/invites/${inviteId}`, { method: 'DELETE' }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: key }),
+    onError: (e) => toast(errorText(e), { kind: 'error' }),
+  });
+
+  const linkOf = (code: string) => (bot ? `https://t.me/${bot}?start=join_${code}` : null);
+  const copy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(t('common.copied'), { icon: '📋' });
+    } catch {
+      window.prompt(t('common.copy'), text);
+    }
+  };
+  const invites = list.data ?? [];
+  const unused = invites.filter((i) => !i.usedBy);
+  const copyAll = () =>
+    void copy(unused.map((i) => [i.label ?? '—', i.code, linkOf(i.code)].filter(Boolean).join(' — ')).join('\n'));
+
+  return (
+    <>
+      <Card className="mb-3">
+        <label className="flex items-center justify-between gap-3">
+          <span className="font-semibold">{t('invite.openJoin')}</span>
+          <input
+            type="checkbox"
+            checked={group.openJoin}
+            disabled={toggleOpen.isPending}
+            onChange={(e) => toggleOpen.mutate(e.target.checked)}
+            className="h-5 w-5 shrink-0 accent-[var(--accent)]"
+          />
+        </label>
+        <p className="mt-1 text-xs text-hint">{t('invite.openJoinHint')}</p>
+      </Card>
+
+      <Card className="mb-3">
+        <div className="mb-1 font-semibold">🔑 {t('invite.personal')}</div>
+        <p className="mb-3 text-xs text-hint">{t('invite.personalHint')}</p>
+        <Field label={t('invite.names')}>
+          <textarea className={inputCls} rows={4} value={names} onChange={(e) => setNames(e.target.value)} placeholder={'Aziz Karimov\nMadina Yusupova'} />
+        </Field>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" disabled={!nameList.length} loading={create.isPending} onClick={() => create.mutate({ labels: nameList })}>
+            🔑 {nameList.length ? t('invite.createNamed', { n: nameList.length }) : t('invite.createCount')}
+          </Button>
+          <span className="text-xs text-hint">{t('invite.orCount')}</span>
+          <input
+            className="w-20 rounded-xl border border-line bg-card px-2 py-1.5 text-center outline-none focus:border-accent"
+            type="number"
+            min={1}
+            max={100}
+            value={count}
+            onChange={(e) => setCount(e.target.value)}
+          />
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={!(Number(count) >= 1 && Number(count) <= 100)}
+            loading={create.isPending}
+            onClick={() => create.mutate({ count: Math.round(Number(count)) })}
+          >
+            {t('invite.createCount')}
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="p-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 p-2">
+          <span className="text-sm text-hint">{t('invite.summary', { total: invites.length, used: invites.length - unused.length })}</span>
+          {unused.length > 0 && (
+            <Button size="sm" variant="secondary" onClick={copyAll}>
+              📋 {t('invite.copyAll')}
+            </Button>
+          )}
+        </div>
+        {list.isLoading && <Loading />}
+        {!list.isLoading && invites.length === 0 && <div className="p-3 text-center text-sm text-hint">{t('invite.empty')}</div>}
+        {invites.map((i) => {
+          const link = linkOf(i.code);
+          return (
+            <div key={i.id} className="flex flex-wrap items-center gap-2 border-t border-line p-2">
+              {/* Telefonda ism to'liq ko'rinsin: kod va tugmalar keyingi qatorga tushadi */}
+              <div className="min-w-0 flex-1 basis-full sm:basis-0">
+                <div className="truncate font-medium">{i.label ?? '—'}</div>
+                <div className="text-xs text-hint">
+                  {i.usedBy ? (
+                    <span className="text-green-600">
+                      ✅ {t('invite.used')}: {i.usedBy.name}
+                      {i.usedBy.username ? ` (@${i.usedBy.username})` : ''} · {i.usedAt ? fmtDate(i.usedAt, true) : ''}
+                    </span>
+                  ) : (
+                    <>⏳ {t('invite.unused')}</>
+                  )}
+                </div>
+              </div>
+              <code className={clsx('rounded-lg bg-soft px-2 py-1 font-mono text-base font-bold tracking-widest', i.usedBy && 'text-hint line-through')}>{i.code}</code>
+              {!i.usedBy && (
+                <div className="flex gap-1">
+                  <button className="rounded-lg px-2 py-1 hover:bg-soft" title={t('common.copy')} onClick={() => void copy(link ? `${i.code} — ${link}` : i.code)}>
+                    📋
+                  </button>
+                  {link && (
+                    <button
+                      className="rounded-lg px-2 py-1 hover:bg-soft"
+                      title={t('common.share')}
+                      onClick={() => shareToTelegram(link, t('invite.shareText', { name: i.label ?? '', group: group.name, code: i.code }))}
+                    >
+                      📤
+                    </button>
+                  )}
+                  <button
+                    className="rounded-lg px-2 py-1 text-red-500 hover:bg-red-500/10"
+                    title="✕"
+                    onClick={async () => {
+                      if (await confirmDialog(`${i.label ?? i.code}: ✕?`)) remove.mutate(i.id);
+                    }}
+                  >
+                    🗑
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </Card>
+    </>
   );
 }
