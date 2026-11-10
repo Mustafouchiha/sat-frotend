@@ -79,6 +79,12 @@ export function openExternal(url: string): void {
   else window.open(url, '_blank', 'noopener');
 }
 
+/** t.me havolasi: Telegram ichida chatni ochadi, brauzerda yangi oynada. */
+export function openTelegramLink(url: string): void {
+  if (isTelegram && tg?.openTelegramLink) tg.openTelegramLink(url);
+  else window.open(url, '_blank', 'noopener');
+}
+
 export function shareToTelegram(url: string, text: string): void {
   const share = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
   if (isTelegram && tg?.openTelegramLink) tg.openTelegramLink(share);

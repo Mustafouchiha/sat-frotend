@@ -36,6 +36,7 @@ export function QuestionView({
   eliminated,
   onToggleEliminate,
   eliminatorOn,
+  split,
 }: {
   q: Question;
   answer?: string | null;
@@ -45,17 +46,26 @@ export function QuestionView({
   eliminated?: string[];
   onToggleEliminate?: (label: string) => void;
   eliminatorOn?: boolean;
+  /** Katta ekranda matn chapda, savol o'ngda (Digital SAT'dagidek) */
+  split?: boolean;
 }) {
   const t = useT();
   const preview = q.type === 'SPR' && answer ? sprPreview(answer) : null;
+  const isSplit = !!split && !!q.passage;
 
   return (
-    <div>
+    <div className={clsx(isSplit && 'lg:grid lg:grid-cols-2 lg:items-start lg:gap-6')}>
       {q.passage && (
-        <div className="mb-4 rounded-2xl border border-line bg-soft/40 p-4 text-[15px]">
+        <div
+          className={clsx(
+            'mb-4 rounded-2xl border border-line bg-soft/40 p-4 text-[15px]',
+            isSplit && 'lg:sticky lg:top-24 lg:mb-0 lg:max-h-[calc(100vh-13rem)] lg:overflow-y-auto lg:text-base lg:leading-relaxed',
+          )}
+        >
           <MathText text={q.passage} />
         </div>
       )}
+      <div>
       {q.imageUrl && <img src={mediaUrl(q.imageUrl)} alt="" className="mx-auto mb-3 max-h-64 rounded-xl" />}
       {q.svg && <SvgFigure svg={q.svg} />}
       <MathText text={q.stem} className="mb-4 text-[16px] font-medium" />
@@ -135,6 +145,7 @@ export function QuestionView({
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }

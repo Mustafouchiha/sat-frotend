@@ -19,6 +19,8 @@ export interface User {
   answeredTotal: number;
   correctTotal: number;
   notifyDaily: boolean;
+  /** Kompyuterda kirish uchun botga ulangan raqam (yashirilgan: "+998 90 *** ** 67") */
+  phone?: string | null;
 }
 
 export interface Title {

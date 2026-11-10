@@ -155,8 +155,11 @@ export default function SessionRunner() {
   const total = s.total ?? undefined;
   const progress = total ? ((s.answered + (result ? 0 : 0)) / total) * 100 : 0;
 
+  // Matnli savol kompyuterda ikki ustunda (matn | savol)
+  const wide = !!s.question.passage;
+
   return (
-    <div className="mx-auto max-w-2xl px-4 pb-32" style={{ paddingTop: 'calc(var(--safe-top) + 0.75rem)' }}>
+    <div className={clsx('mx-auto px-4 pb-32', wide ? 'max-w-2xl lg:max-w-6xl' : 'max-w-2xl')} style={{ paddingTop: 'calc(var(--safe-top) + 0.75rem)' }}>
       <div className="relative mb-3 flex items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold">{s.title}</div>
@@ -196,6 +199,7 @@ export default function SessionRunner() {
           }}
           disabled={!!result || busy}
           reveal={result && !isRush ? { correctLabel: result.correctLabel, correctDisplay: result.correctDisplay, isCorrect: result.correct } : undefined}
+          split
         />
       </Card>
 
@@ -227,7 +231,7 @@ export default function SessionRunner() {
       )}
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card/95 p-3 backdrop-blur" style={{ paddingBottom: 'calc(var(--safe-bottom) + 0.75rem)' }}>
-        <div className="mx-auto max-w-2xl">
+        <div className={clsx('mx-auto', wide ? 'max-w-2xl lg:max-w-6xl' : 'max-w-2xl')}>
           {result && !isRush ? (
             <Button size="lg" onClick={() => void q.refetch()}>
               {result.finished ? t('session.result') : t('common.next')} →

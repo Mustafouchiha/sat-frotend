@@ -24,6 +24,8 @@ interface AuthState {
   startParam?: string | null;
   init: () => Promise<void>;
   loginWith: (path: '/auth/widget' | '/auth/dev', body: unknown) => Promise<void>;
+  /** Kompyuterda QR yoki telefon kodi bilan olingan token */
+  acceptToken: (token: string) => Promise<void>;
   refresh: () => Promise<void>;
   setUser: (u: User) => void;
   expire: () => void;
@@ -74,6 +76,18 @@ export const useAuth = create<AuthState>((set, get) => ({
       set({ status: 'ready' });
     } catch (e) {
       set({ status: 'need-login', error: e instanceof Error ? e.message : String(e) });
+    }
+  },
+
+  acceptToken: async (token) => {
+    store.set(TOKEN_KEY, token);
+    set({ token, status: 'loading', error: undefined });
+    try {
+      await get().refresh();
+      set({ status: 'ready' });
+    } catch (e) {
+      store.remove(TOKEN_KEY);
+      set({ token: null, status: 'need-login', error: e instanceof Error ? e.message : String(e) });
     }
   },
 

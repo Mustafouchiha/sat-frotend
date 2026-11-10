@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import clsx from 'clsx';
 import { lazy, Suspense, useEffect, useRef, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { BottomNav } from './components/Layout';
+import { BottomNav, SideNav } from './components/Layout';
 import { Toaster } from './components/Toast';
 import { Loading } from './components/ui';
 import { launchParams } from './lib/telegram';
@@ -78,6 +79,8 @@ function Shell() {
   return (
     <>
       <StartParamHandler />
+      {!immersive && <SideNav />}
+      <div className={clsx(!immersive && 'lg:pl-60')}>
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route path="/" element={a(<Home />)} />
@@ -112,6 +115,7 @@ function Shell() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
+      </div>
       {!immersive && <BottomNav />}
     </>
   );

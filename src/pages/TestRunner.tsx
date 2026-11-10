@@ -321,9 +321,29 @@ function ModuleRunner({ s, onChanged }: { s: Extract<TestState, { status: 'IN_PR
     if (await confirmDialog(msg)) void submitModule(false);
   };
 
+  // Kompyuterda: ← / → bilan savollar orasida yurish (yozish maydonida yoki oyna ochiq bo'lsa ishlamaydi)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || navOpen || calcOpen || refOpen) return;
+      if ((e.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if (e.key === 'ArrowRight' && idx < items.length - 1) {
+        e.preventDefault();
+        go(idx + 1);
+      } else if (e.key === 'ArrowLeft' && idx > 0) {
+        e.preventDefault();
+        go(idx - 1);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  // R&W matnli savollar kompyuterda ikki ustunda: matn chapda, savol o'ngda
+  const wide = !!cur?.question.passage;
+
   return (
     <div
-      className="no-copy mx-auto min-h-screen max-w-3xl pb-36"
+      className={clsx('no-copy mx-auto min-h-screen pb-36', wide ? 'max-w-3xl lg:max-w-6xl' : 'max-w-3xl')}
       onCopy={(e) => e.preventDefault()}
       onCut={(e) => e.preventDefault()}
       onContextMenu={(e) => e.preventDefault()}
@@ -385,6 +405,7 @@ function ModuleRunner({ s, onChanged }: { s: Extract<TestState, { status: 'IN_PR
               eliminated={local.eliminated[cur.order]}
               onToggleEliminate={elimOn ? toggleElim : undefined}
               eliminatorOn={elimOn}
+              split
             />
           </Card>
         )}
@@ -394,8 +415,8 @@ function ModuleRunner({ s, onChanged }: { s: Extract<TestState, { status: 'IN_PR
       </div>
 
       <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card/95 px-3 pt-3 backdrop-blur" style={{ paddingBottom: 'calc(var(--safe-bottom) + 0.75rem)' }}>
-        <div className="mx-auto flex max-w-3xl items-center gap-2">
-          <Button variant="secondary" disabled={idx === 0} onClick={() => go(idx - 1)}>
+        <div className={clsx('mx-auto flex items-center gap-2', wide ? 'max-w-3xl lg:max-w-6xl' : 'max-w-3xl')}>
+          <Button variant="secondary" disabled={idx === 0} onClick={() => go(idx - 1)} title="←">
             ←
           </Button>
           <button onClick={() => setNavOpen(true)} className="flex-1 rounded-xl bg-soft py-2.5 font-semibold">
