@@ -30,6 +30,8 @@ interface QrLogin {
   secret: string;
   expiresAt: string;
   link: string | null;
+  /** Botning chatlar ro'yxatidagi nomi (masalan «SATiy») */
+  botTitle?: string | null;
 }
 type PollResult = { status: 'pending' | 'expired' | 'rejected' | 'used' } | { status: 'approved'; token: string };
 interface PhoneLogin {
@@ -38,6 +40,9 @@ interface PhoneLogin {
   expiresAt: string;
   phone: string;
   linkBot: string | null;
+  /** Kod keladigan bot chatini ochish */
+  chatLink?: string | null;
+  botTitle?: string | null;
 }
 
 const botFromLink = (link: string | null | undefined) => (link ? /t\.me\/([A-Za-z0-9_]+)/.exec(link)?.[1] ?? null : null);
@@ -64,7 +69,7 @@ function QrImage({ value, size = 224, children }: { value: string; size?: number
 }
 
 /** QR: brauzer so'rov yaratadi, telefonda bot orqali tasdiqlanadi, brauzer har 2 soniyada holatni so'raydi. */
-function QrPanel({ onToken, onBot }: { onToken: (token: string) => void; onBot: (bot: string | null) => void }) {
+function QrPanel({ onToken, onBot }: { onToken: (token: string) => void; onBot: (bot: string | null, title: string | null) => void }) {
   const t = useT();
   const [qr, setQr] = useState<QrLogin | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'expired' | 'rejected' | 'error'>('loading');
@@ -78,7 +83,7 @@ function QrPanel({ onToken, onBot }: { onToken: (token: string) => void; onBot: 
       const r = await api<QrLogin>('/web-login/qr', { body: {} });
       if (!r.link) throw new Error("Bot nomi sozlanmagan (BOT_USERNAME)");
       setQr(r);
-      onBot(botFromLink(r.link));
+      onBot(botFromLink(r.link), r.botTitle ?? null);
       setState('ready');
     } catch (e) {
       setError(errorText(e));
@@ -154,14 +159,15 @@ function QrPanel({ onToken, onBot }: { onToken: (token: string) => void; onBot: 
           </QrImage>
         )}
       </div>
-      <ol className="mb-4 flex flex-col gap-2 text-sm">
-        {[t('login.qrStep1'), t('login.qrStep2', { bot: bot ?? 'bot' }), t('login.qrStep3')].map((step, i) => (
+      <ol className="mb-2 flex flex-col gap-2 text-sm">
+        {[t('login.qrStep1', { title: qr?.botTitle ?? bot ?? 'SAT', bot: bot ?? 'bot' }), t('login.qrStep2'), t('login.qrStep3')].map((step, i) => (
           <li key={i} className="flex gap-2">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-accent">{i + 1}</span>
             <span className="pt-0.5">{step}</span>
           </li>
         ))}
       </ol>
+      <p className="mb-4 rounded-xl bg-soft p-2 text-xs text-hint">{t('login.qrAlt', { title: qr?.botTitle ?? bot ?? 'bot' })}</p>
       {state === 'ready' && <p className="mb-3 flex items-center gap-2 text-xs text-hint"><span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />{t('login.waiting')}</p>}
       {qr?.link && state === 'ready' && (
         <div className="mt-auto">
@@ -176,7 +182,7 @@ function QrPanel({ onToken, onBot }: { onToken: (token: string) => void; onBot: 
 }
 
 /** Telefon raqam: botga ulangan raqamga Telegram orqali 6 xonali kod keladi. */
-function PhonePanel({ bot, onToken }: { bot: string | null; onToken: (token: string) => void }) {
+function PhonePanel({ bot, title, onToken }: { bot: string | null; title: string | null; onToken: (token: string) => void }) {
   const t = useT();
   const [phone, setPhone] = useState('+998 ');
   const [req, setReq] = useState<PhoneLogin | null>(null);
@@ -225,10 +231,11 @@ function PhonePanel({ bot, onToken }: { bot: string | null; onToken: (token: str
   };
 
   const botName = botFromLink(req?.linkBot) ?? bot ?? 'bot';
+  const botTitle = req?.botTitle ?? title ?? botName;
   return (
     <Card className="flex h-full flex-col">
       <h2 className="mb-1 text-lg font-bold">📱 {t('login.phoneTitle')}</h2>
-      <p className="mb-4 text-sm text-hint">{t('login.phoneHint', { bot: botName })}</p>
+      <p className="mb-4 text-sm text-hint">{t('login.phoneHint', { title: botTitle, bot: botName })}</p>
       {!req ? (
         <form
           onSubmit={(e) => {
@@ -256,7 +263,17 @@ function PhonePanel({ bot, onToken }: { bot: string | null; onToken: (token: str
             void verify();
           }}
         >
-          <p className="mb-3 rounded-xl bg-soft p-3 text-sm">{t('login.codeSent', { phone: req.phone, bot: botName })}</p>
+          <p className="mb-3 rounded-xl bg-soft p-3 text-sm">{t('login.codeSent', { phone: req.phone, title: botTitle, bot: botName })}</p>
+          {req.chatLink && (
+            <a
+              href={req.chatLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mb-3 flex items-center justify-center gap-2 rounded-xl bg-[#229ED9] px-4 py-2.5 font-semibold text-white"
+            >
+              ✈️ {t('login.openChat', { title: botTitle })}
+            </a>
+          )}
           <input
             ref={codeRef}
             className={clsx(inputCls, 'text-center text-2xl font-bold tracking-[0.5em]')}
@@ -283,9 +300,10 @@ function PhonePanel({ bot, onToken }: { bot: string | null; onToken: (token: str
               {cooldown > 0 ? t('login.resendIn', { s: cooldown }) : t('login.resend')}
             </button>
           </div>
-          <details className="mt-4 rounded-xl border border-line p-3 text-sm">
-            <summary className="cursor-pointer font-semibold">{t('login.noCode')}</summary>
-            <p className="mt-2 text-hint">{t('login.noCodeText', { bot: botName })}</p>
+          {/* Ko'pincha kod kelmasligining sababi — raqam hali ulanmagan; yo'riqnoma doim ko'rinib tursin */}
+          <p className="mt-4 rounded-xl bg-orange-500/10 p-3 text-sm">💡 {t('login.noCodeText')}</p>
+          <details className="mt-2 rounded-xl border border-line p-3 text-sm">
+            <summary className="cursor-pointer font-semibold">{t('profile.linkPhone')}</summary>
             {req.linkBot && (
               <div className="mt-3 flex flex-wrap items-center gap-4">
                 <QrImage value={req.linkBot} size={120} />
@@ -315,8 +333,12 @@ export function LoginPage() {
   const devLogin = import.meta.env.VITE_DEV_LOGIN === 'true';
   const [tab, setTab] = useState<'qr' | 'phone'>('qr');
   const [bot, setBot] = useState<string | null>((import.meta.env.VITE_BOT_USERNAME as string | undefined) ?? null);
+  const [botTitle, setBotTitle] = useState<string | null>(null);
   const onToken = useCallback((token: string) => void acceptToken(token), [acceptToken]);
-  const onBot = useCallback((b: string | null) => b && setBot(b), []);
+  const onBot = useCallback((b: string | null, title: string | null) => {
+    if (b) setBot(b);
+    if (title) setBotTitle(title);
+  }, []);
 
   const devUsers = [
     { tgId: 100000004, firstName: 'Aziz', label: "O'quvchi" },
@@ -350,7 +372,7 @@ export function LoginPage() {
             <QrPanel onToken={onToken} onBot={onBot} />
           </div>
           <div className={clsx(tab !== 'phone' && 'hidden lg:block')}>
-            <PhonePanel bot={bot} onToken={onToken} />
+            <PhonePanel bot={bot} title={botTitle} onToken={onToken} />
           </div>
         </div>
 

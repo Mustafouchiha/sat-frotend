@@ -138,14 +138,14 @@ export function BottomNav() {
   const t = useT();
   const user = useAuth((s) => s.user);
   const staff = hasRole(user, 'OPERATOR', 'TEACHER');
+  // O'qituvchi va operatorlarda Panel ham, Profil ham bo'ladi (6 ta tugma)
   const tabs = [
     { to: '/', icon: '🏠', label: t('nav.home') },
     { to: '/practice', icon: '🎯', label: t('nav.practice') },
     { to: '/tests', icon: '📝', label: t('nav.tests') },
     { to: '/leaderboard', icon: '🏆', label: t('nav.rating') },
-    staff
-      ? { to: hasRole(user, 'OPERATOR') ? '/admin' : '/teacher', icon: '🧭', label: t('nav.panel') }
-      : { to: '/profile', icon: '👤', label: t('nav.profile') },
+    ...(staff ? [{ to: hasRole(user, 'OPERATOR') ? '/admin' : '/teacher', icon: '🧭', label: t('nav.panel') }] : []),
+    { to: '/profile', icon: '👤', label: t('nav.profile') },
   ];
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-card/95 backdrop-blur lg:hidden" style={{ paddingBottom: 'var(--safe-bottom)' }}>
@@ -156,7 +156,11 @@ export function BottomNav() {
             to={tab.to}
             end={tab.to === '/'}
             className={({ isActive }) =>
-              clsx('flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium', isActive ? 'text-accent' : 'text-hint')
+              clsx(
+                'flex min-w-0 flex-1 flex-col items-center gap-0.5 whitespace-nowrap py-2 font-medium',
+                tabs.length > 5 ? 'text-[10px]' : 'text-[11px]',
+                isActive ? 'text-accent' : 'text-hint',
+              )
             }
           >
             <span className="text-xl leading-none">{tab.icon}</span>

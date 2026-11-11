@@ -4,12 +4,13 @@ import { Link } from 'react-router-dom';
 import { LineChart } from '../components/LineChart';
 import { Page } from '../components/Layout';
 import { ThemeSettings } from '../components/ThemeSettings';
+import { WebAccessCard } from '../components/WebAccessCard';
 import { toast } from '../components/Toast';
 import { Avatar, Badge, Button, Card, Field, inputCls, ProgressBar, SectionTitle, Segmented } from '../components/ui';
 import { api, errorText } from '../lib/api';
 import { fmtDate, fmtDelta } from '../lib/format';
 import { useLang, useT, type Lang } from '../lib/i18n';
-import { isTelegram, openTelegramLink, shareToTelegram } from '../lib/telegram';
+import { isTelegram, shareToTelegram } from '../lib/telegram';
 import type { Achievement, Stats, User } from '../lib/types';
 import { hasRole, useAuth } from '../store/auth';
 
@@ -28,7 +29,6 @@ export default function Profile() {
   const groups = useAuth((s) => s.groups);
   const setUser = useAuth((s) => s.setUser);
   const logout = useAuth((s) => s.logout);
-  const botUsername = useAuth((s) => s.config.botUsername);
   const { lang, setLang } = useLang();
   const [type, setType] = useState<'OVERALL' | 'MATH' | 'RW'>('OVERALL');
   const me = useQuery({ queryKey: ['me-stats'], queryFn: () => api<{ stats: Stats }>('/me') });
@@ -74,6 +74,9 @@ export default function Profile() {
           </div>
         </div>
       </Card>
+
+      {/* Kompyuterga kirish (QR skaner) va raqamni ulash — eng yuqorida, tez topilsin */}
+      <WebAccessCard />
 
       {hasRole(user, 'TEACHER', 'OPERATOR') && (
         <div className="mt-3 grid grid-cols-2 gap-2">
@@ -234,22 +237,6 @@ export default function Profile() {
         ) : (
           <Button variant="secondary" loading={parent.isPending} onClick={() => parent.mutate()}>
             👨‍👩‍👧 {t('profile.parentCode')}
-          </Button>
-        )}
-      </Card>
-
-      <SectionTitle>💻 {t('profile.webTitle')}</SectionTitle>
-      <Card>
-        <p className="mb-3 text-sm text-hint">{t('profile.webText', { url: window.location.host })}</p>
-        {user.phone && (
-          <div className="mb-3 flex items-center justify-between gap-2 text-sm">
-            <span>{t('profile.phoneLinked')}</span>
-            <b className="tabular-nums">{user.phone}</b>
-          </div>
-        )}
-        {botUsername && (
-          <Button variant="secondary" onClick={() => openTelegramLink(`https://t.me/${botUsername}?start=phone`)}>
-            {user.phone ? t('profile.relinkPhone') : t('profile.linkPhone')}
           </Button>
         )}
       </Card>

@@ -27,6 +27,13 @@ interface TgWebApp {
   downloadFile?: (params: { url: string; file_name: string }, cb?: (ok: boolean) => void) => void;
   showConfirm?: (msg: string, cb: (ok: boolean) => void) => void;
   isVersionAtLeast?: (v: string) => boolean;
+  /** Bot API 6.4+: Telegram'ning QR skaneri (faqat telefonda) */
+  showScanQrPopup?: (params: { text?: string }, cb?: (data: string) => boolean | void) => void;
+  closeScanQrPopup?: () => void;
+  /** Bot API 6.9+: raqamni botga ulashish oynasi (bot kontakt xabarini oladi) */
+  requestContact?: (cb?: (shared: boolean) => void) => void;
+  onEvent?: (event: string, cb: () => void) => void;
+  offEvent?: (event: string, cb: () => void) => void;
   BackButton: TgButton;
   HapticFeedback?: {
     impactOccurred(style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft'): void;
@@ -77,6 +84,41 @@ export function launchParams(): { start?: string; query: URLSearchParams } {
 export function openExternal(url: string): void {
   if (isTelegram && tg?.openLink) tg.openLink(url);
   else window.open(url, '_blank', 'noopener');
+}
+
+/** QR skaner faqat telefondagi Telegram'da bor (kompyuterdagi Telegram'da kamera yo'q). */
+export const canScanQr = isTelegram && !!tg?.showScanQrPopup && !!tg.isVersionAtLeast?.('6.4') && /android|ios/i.test(tg.platform ?? '');
+
+/** Telegram'ning QR skanerini ochadi; skanerlangan matn yoki (yopilsa) null. */
+export function scanQr(text: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const app = tg;
+    if (!canScanQr || !app?.showScanQrPopup) return resolve(null);
+    let done = false;
+    const onClosed = () => {
+      if (done) return;
+      done = true;
+      app.offEvent?.('scanQrPopupClosed', onClosed);
+      resolve(null);
+    };
+    app.onEvent?.('scanQrPopupClosed', onClosed);
+    app.showScanQrPopup({ text }, (data) => {
+      done = true;
+      app.offEvent?.('scanQrPopupClosed', onClosed);
+      resolve(data);
+      return true; // skanerni yopish
+    });
+  });
+}
+
+export const canRequestContact = isTelegram && !!tg?.requestContact && !!tg.isVersionAtLeast?.('6.9');
+
+/** «Raqamni ulashish» oynasi: rozi bo'lsa, Telegram raqamni botga yuboradi (bot uni profilga ulaydi). */
+export function requestContact(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (!canRequestContact || !tg?.requestContact) return resolve(false);
+    tg.requestContact((shared) => resolve(!!shared));
+  });
 }
 
 /** t.me havolasi: Telegram ichida chatni ochadi, brauzerda yangi oynada. */

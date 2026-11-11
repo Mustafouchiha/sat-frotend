@@ -10,7 +10,7 @@ interface MeResponse {
   user: User;
   stats: Stats;
   groups: Array<{ id: string; name: string; role: 'STUDENT' | 'TEACHER' }>;
-  config: { botUsername: string | null; desmosKey: string | null };
+  config: { botUsername: string | null; botTitle?: string | null; desmosKey: string | null };
 }
 
 type Status = 'idle' | 'loading' | 'ready' | 'need-login' | 'error';
