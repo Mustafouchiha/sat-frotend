@@ -18,6 +18,8 @@ export interface AiStatus {
   limit: number | null;
   used: number;
   busy: boolean;
+  /** Markazning kunlik AI byudjeti tugagan */
+  overBudget?: boolean;
   practice: { limit: number | null; used: number };
 }
 
@@ -115,7 +117,7 @@ export default function AiTutor() {
 
   const st = status.data;
   const limitReached = !!st && st.limit !== null && st.used >= st.limit;
-  const canSend = !!st?.enabled && !st.busy && !limitReached && !busy;
+  const canSend = !!st?.enabled && !st.busy && !limitReached && !st.overBudget && !busy;
 
   const onResult = (r: ChatResp, tempId: string) => {
     setMsgs((list) => [...list.filter((m) => m.id !== tempId), ...r.messages]);
@@ -127,7 +129,7 @@ export default function AiTutor() {
   const onFail = (e: unknown, tempId: string) => {
     setMsgs((list) => list.filter((m) => m.id !== tempId));
     toast(errorText(e), { kind: 'error' });
-    if (e instanceof ApiError && ['AI_LIMIT', 'AI_BUSY', 'AI_OFF', 'AI_DISABLED'].includes(e.code ?? '')) void status.refetch();
+    if (e instanceof ApiError && ['AI_LIMIT', 'AI_BUSY', 'AI_OFF', 'AI_DISABLED', 'AI_BUDGET'].includes(e.code ?? '')) void status.refetch();
   };
 
   // Xatolar daftaridan «Tushuntir»: mavzu darsi
@@ -279,6 +281,7 @@ export default function AiTutor() {
         <div className="sticky bottom-[calc(var(--safe-bottom)+4.75rem)] z-20 -mx-1 mt-2 rounded-2xl border border-line bg-card p-2 shadow-lg lg:bottom-4">
           {st.busy && <div className="mb-2 rounded-lg bg-orange-500/10 px-2 py-1.5 text-xs text-orange-600">⏱ {t('ai.busy')}</div>}
           {limitReached && <div className="mb-2 rounded-lg bg-red-500/10 px-2 py-1.5 text-xs text-red-600">{t('ai.limitReached')}</div>}
+          {st.overBudget && !limitReached && <div className="mb-2 rounded-lg bg-red-500/10 px-2 py-1.5 text-xs text-red-600">{t('ai.budget')}</div>}
           {answerId && (
             <div className="mb-2 flex items-center justify-between rounded-lg bg-soft px-2 py-1.5 text-xs">
               <span>📎 {t('ai.aboutQuestion')}</span>

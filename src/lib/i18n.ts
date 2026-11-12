@@ -325,6 +325,7 @@ const uz = {
   'mistakes.generating': 'AI shu mavzuda yangi savollar tayyorlayapti…',
   'mistakes.generatingHint': "Har bir savolni boshqa AI alohida yechib tekshiradi — 1–3 daqiqa ketishi mumkin. Tayyor bo'lgach mashq o'zi ochiladi.",
   'mistakes.generated': '{n} ta yangi savol tayyor',
+  'ai.budget': 'AI bugungi limitga yetdi — ertaga yana ishlaydi',
 } as const;
 
 export type I18nKey = keyof typeof uz;
@@ -641,6 +642,7 @@ const ru: Dict = {
   'mistakes.generating': 'AI готовит новые вопросы по этой теме…',
   'mistakes.generatingHint': 'Каждый вопрос отдельно решает и проверяет другая модель — это займёт 1–3 минуты. Тренировка откроется сама.',
   'mistakes.generated': 'Готово новых вопросов: {n}',
+  'ai.budget': 'AI исчерпал дневной лимит — заработает завтра',
 };
 
 const en: Dict = {
@@ -954,6 +956,7 @@ const en: Dict = {
   'mistakes.generating': 'The AI is writing new questions on this topic…',
   'mistakes.generatingHint': 'Another AI solves and checks every question separately — this can take 1–3 minutes. Practice opens by itself when ready.',
   'mistakes.generated': '{n} new questions ready',
+  'ai.budget': "The AI has reached today's limit — it works again tomorrow",
 };
 
 const DICTS: Record<Lang, Dict> = { uz, ru, en };

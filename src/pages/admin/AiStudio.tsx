@@ -45,6 +45,7 @@ interface Job {
 
 interface Usage {
   configured: boolean;
+  budgetUsd: number;
   today: { chatUsd: number; generateUsd: number; totalUsd: number; messages: number; questions: number };
   month: { chatUsd: number; generateUsd: number; totalUsd: number; messages: number; questions: number };
   bank: Record<string, number>;
@@ -60,6 +61,7 @@ interface AiSettings {
   autoRefill: boolean;
   refillDailyJobs: number;
   studentDailyJobs: number;
+  dailyBudgetUsd: number;
 }
 
 interface PickedFile {
@@ -207,6 +209,9 @@ function SettingsCard() {
         <Field label="O'quvchi «Yangi savollar»: kuniga" hint="Har biri ~6 savol">
           {num('studentDailyJobs')}
         </Field>
+        <Field label="Kunlik AI byudjeti ($)" hint="Yetganda chat va savol yaratish ertagacha to'xtaydi; 0 — cheklovsiz">
+          <input type="number" min={0} max={1000} step={0.5} value={v.dailyBudgetUsd} onChange={(e) => set('dailyBudgetUsd', Math.max(0, Number(e.target.value) || 0))} className={inputCls} />
+        </Field>
       </div>
       <div className="mt-3 flex flex-col gap-2">
         {toggle('chatEnabled', 'AI ustoz yoqilgan', 'Mini App va Telegram botda chat')}
@@ -315,7 +320,12 @@ export default function AiStudio() {
       )}
       {u && (
         <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <StatTile label="Bugungi xarajat" value={usd(u.today.totalUsd)} sub={`chat ${usd(u.today.chatUsd)} · savollar ${usd(u.today.generateUsd)}`} />
+          <StatTile
+            label={u.budgetUsd > 0 ? `Bugungi xarajat (byudjet ${usd(u.budgetUsd)})` : 'Bugungi xarajat'}
+            value={usd(u.today.totalUsd)}
+            sub={`chat ${usd(u.today.chatUsd)} · savollar ${usd(u.today.generateUsd)}`}
+            color={u.budgetUsd > 0 && u.today.totalUsd >= u.budgetUsd ? '#dc2626' : undefined}
+          />
           <StatTile label="30 kunda" value={usd(u.month.totalUsd)} sub={`${u.month.messages} xabar · ${u.month.questions} savol`} />
           <StatTile label="Bankdagi AI savollar" value={u.bank.PUBLISHED ?? 0} sub={`tekshiruvda: ${u.bank.PENDING_REVIEW ?? 0}`} />
           <StatTile label="Bugun" value={`${u.today.questions} savol`} sub={`${u.today.messages} ta chat xabar`} />
