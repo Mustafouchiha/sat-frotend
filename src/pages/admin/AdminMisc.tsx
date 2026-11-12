@@ -112,7 +112,8 @@ function Scales() {
 // ───────── Sozlamalar ─────────
 
 const SETTING_LABELS: Record<string, string> = {
-  rating: "Reyting (Elo, SAT shkalasida: umumiy 400–1600, Math va R&W 200–800): K-faktorlar, provisional, tezlik bonusi",
+  rating:
+    "Reyting (Elo, SAT shkalasida: umumiy 400–1600, Math va R&W 200–800; boshlanishi initial=800, ya'ni har bo'lim 400): K-faktorlar, provisional, tezlik bonusi",
   titles: 'Unvonlar (nomi, chegara, rang, ikonka)',
   ratingToSat: 'Reyting → taxminiy SAT ball jadvali',
   mastery: "Mastery: o'sish/pasayish tezligi, zaif/kuchli chegaralar",
