@@ -19,6 +19,7 @@ interface Stats {
 
 const LINKS: Array<[string, string, string, string]> = [
   ['/admin/templates', '📚', 'Savollar banki', 'Shablonlar, preview, avto-tekshiruv, AI'],
+  ['/admin/ai', '🤖', 'AI savol generatori', "Math va English: mavzu yoki eski test bo'yicha yangi savollar, xarajat"],
   ['/admin/templates/new', '➕', 'Yangi shablon', "Savol qo'shish yoki tayyor testdan yasash"],
   ['/admin/tests', '📝', 'Testlar', 'Mock, bo\'lim, mavzu testlari'],
   ['/teacher', '👥', 'Guruhlar', 'Guruhlar, taklif kodlari, tahlil'],

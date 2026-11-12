@@ -106,6 +106,8 @@ export interface AnswerResult {
   achievements: Achievement[];
   expired?: boolean;
   ref: { templateId: string; templateVersion: number; seed: number };
+  /** AI ustozga shu savol haqida so'rash uchun */
+  answerId?: string;
 }
 
 export interface Domain {

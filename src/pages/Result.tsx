@@ -5,6 +5,7 @@ import { Badge, Button, Card, ErrorBox, Loading, ProgressBar, SectionTitle } fro
 import { api } from '../lib/api';
 import { fmtDate, fmtDelta, fmtTime } from '../lib/format';
 import { useT } from '../lib/i18n';
+import { useAuth } from '../store/auth';
 import type { ReviewQuestion } from '../lib/types';
 import { ReviewList } from './Session';
 
@@ -12,7 +13,7 @@ interface ResultData {
   id: string;
   title: string | null;
   testType: string | null;
-  student: { firstName: string; lastName: string | null };
+  student: { id: string; firstName: string; lastName: string | null };
   startedAt: string;
   finishedAt: string;
   blurCount: number;
@@ -43,6 +44,7 @@ export default function Result() {
   const t = useT();
   const nav = useNavigate();
   const q = useQuery({ queryKey: ['result', id], queryFn: () => api<ResultData>(`/attempts/${id}/result`) });
+  const meId = useAuth((st) => st.user?.id);
   if (q.isLoading) return <Loading />;
   if (q.error || !q.data) return <Page back><ErrorBox error={q.error} onRetry={() => q.refetch()} /></Page>;
   const r = q.data;
@@ -145,7 +147,7 @@ export default function Result() {
       {r.items && (
         <>
           <SectionTitle>{t('result.questions')}</SectionTitle>
-          <ReviewList items={r.items.map((it) => ({ ...it, order: it.number }))} />
+          <ReviewList items={r.items.map((it) => ({ ...it, order: it.number }))} askAi={!r.student || r.student.id === meId} />
         </>
       )}
       <Button size="lg" variant="secondary" className="mt-4" onClick={() => nav('/mistakes')}>

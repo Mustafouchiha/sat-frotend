@@ -23,6 +23,8 @@ const Tests = lazy(() => import('./pages/Tests'));
 const TestRunner = lazy(() => import('./pages/TestRunner'));
 const Result = lazy(() => import('./pages/Result'));
 const Mistakes = lazy(() => import('./pages/Mistakes'));
+const AiTutor = lazy(() => import('./pages/AiTutor'));
+const AiStudio = lazy(() => import('./pages/admin/AiStudio'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const Profile = lazy(() => import('./pages/Profile'));
 const TeacherHome = lazy(() => import('./pages/teacher/TeacherHome'));
@@ -97,6 +99,7 @@ function Shell() {
           <Route path="/attempt/:id" element={a(<TestRunner />)} />
           <Route path="/attempt/:id/result" element={<Result />} />
           <Route path="/mistakes" element={a(<Mistakes />)} />
+          <Route path="/ai" element={a(<AiTutor />)} />
           <Route path="/leaderboard" element={a(<Leaderboard />)} />
           <Route path="/profile" element={<Profile />} />
 
@@ -111,6 +114,7 @@ function Shell() {
           <Route path="/admin/templates/:id" element={<RequireRole roles={['OPERATOR', 'TEACHER']}><TemplateEditor /></RequireRole>} />
           <Route path="/admin/tests" element={<RequireRole roles={['OPERATOR']}><AdminTests /></RequireRole>} />
           <Route path="/admin/users" element={<RequireRole roles={['OPERATOR']}><AdminUsers /></RequireRole>} />
+          <Route path="/admin/ai" element={<RequireRole roles={['OPERATOR']}><AiStudio /></RequireRole>} />
           <Route path="/admin/:section" element={<RequireRole roles={['OPERATOR']}><AdminMisc /></RequireRole>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

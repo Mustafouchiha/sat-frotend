@@ -11,7 +11,7 @@ import { Avatar } from './ui';
 
 const NEXT_MODE: Record<ThemeMode, ThemeMode> = { auto: 'light', light: 'dark', dark: 'auto' };
 
-const TAB_ROOTS = ['/', '/practice', '/tests', '/leaderboard', '/profile', '/teacher', '/admin'];
+const TAB_ROOTS = ['/', '/practice', '/tests', '/ai', '/leaderboard', '/profile', '/teacher', '/admin'];
 
 /** Telegram BackButton: asosiy tablardan tashqari sahifalarda ko'rinadi. */
 export function useTelegramBack(override?: () => void) {
@@ -72,6 +72,7 @@ export function SideNav() {
     { to: '/', icon: '🏠', label: t('nav.home') },
     { to: '/practice', icon: '🎯', label: t('nav.practice') },
     { to: '/tests', icon: '📝', label: t('nav.tests') },
+    { to: '/ai', icon: '🤖', label: t('nav.ai') },
     { to: '/leaderboard', icon: '🏆', label: t('nav.rating') },
     ...(staff ? [{ to: hasRole(user, 'OPERATOR') ? '/admin' : '/teacher', icon: '🧭', label: t('nav.panel') }] : []),
     { to: '/profile', icon: '👤', label: t('nav.profile') },
@@ -138,11 +139,12 @@ export function BottomNav() {
   const t = useT();
   const user = useAuth((s) => s.user);
   const staff = hasRole(user, 'OPERATOR', 'TEACHER');
-  // O'qituvchi va operatorlarda Panel ham, Profil ham bo'ladi (6 ta tugma)
+  // O'quvchida AI ustoz tugmasi; o'qituvchi va operatorlarda uning o'rnida Panel (6 ta tugmadan oshmasin — AI bosh sahifada)
   const tabs = [
     { to: '/', icon: '🏠', label: t('nav.home') },
     { to: '/practice', icon: '🎯', label: t('nav.practice') },
     { to: '/tests', icon: '📝', label: t('nav.tests') },
+    ...(staff ? [] : [{ to: '/ai', icon: '🤖', label: t('nav.ai') }]),
     { to: '/leaderboard', icon: '🏆', label: t('nav.rating') },
     ...(staff ? [{ to: hasRole(user, 'OPERATOR') ? '/admin' : '/teacher', icon: '🧭', label: t('nav.panel') }] : []),
     { to: '/profile', icon: '👤', label: t('nav.profile') },

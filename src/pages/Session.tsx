@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Page, useTelegramBack } from '../components/Layout';
 import { MathText } from '../components/MathText';
 import { QuestionView } from '../components/QuestionView';
+import { AskAiButton } from '../components/AskAi';
 import { ReportButton } from '../components/ReportSheet';
 import { TimerPill, useCountdown } from '../components/Timer';
 import { toast } from '../components/Toast';
@@ -224,7 +225,8 @@ export default function SessionRunner() {
               <MathText text={result.explanation} />
             </div>
           )}
-          <div className="mt-2 text-right">
+          <div className="mt-2 flex items-center justify-end gap-2">
+            {(s.mode === 'PRACTICE' || s.mode === 'REVIEW') && <AskAiButton answerId={result.answerId} />}
             <ReportButton refData={result.ref} />
           </div>
         </Card>
@@ -300,6 +302,9 @@ interface ReviewData {
     seed: number;
     skill: string;
     domain: string;
+    /** Sessiya: answerId; test natijasi: id (ikkalasi ham javob qatori) */
+    answerId?: string;
+    id?: string;
   }>;
 }
 
@@ -327,7 +332,7 @@ export function SessionReview() {
   );
 }
 
-export function ReviewList({ items }: { items: ReviewData['items'] }) {
+export function ReviewList({ items, askAi = true }: { items: ReviewData['items']; askAi?: boolean }) {
   const t = useT();
   const [open, setOpen] = useState<number | null>(null);
   return (
@@ -369,7 +374,8 @@ export function ReviewList({ items }: { items: ReviewData['items'] }) {
                   <MathText text={it.question.explanation} />
                 </div>
               )}
-              <div className="mt-2 text-right">
+              <div className="mt-2 flex items-center justify-end gap-2">
+                {askAi && <AskAiButton answerId={it.answerId ?? it.id} />}
                 <ReportButton refData={{ templateId: it.templateId, templateVersion: it.templateVersion, seed: it.seed }} />
               </div>
             </div>

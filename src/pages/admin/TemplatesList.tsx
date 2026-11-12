@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Page } from '../../components/Layout';
 import { toast } from '../../components/Toast';
 import { Badge, Button, Card, Empty, inputCls, Loading } from '../../components/ui';
@@ -40,7 +40,9 @@ export default function TemplatesList() {
   const user = useAuth((s) => s.user);
   const isOperator = hasRole(user, 'OPERATOR');
   const tax = useTaxonomy();
-  const [f, setF] = useState({ search: '', section: '', domainId: '', difficulty: '', status: '', page: 1 });
+  // ?search=ai — AI generatoridan «AI savollar ro'yxati» havolasi
+  const [params] = useSearchParams();
+  const [f, setF] = useState({ search: params.get('search') ?? '', section: '', domainId: '', difficulty: '', status: '', page: 1 });
   const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v !== '' && v !== 0).map(([k, v]) => [k, String(v)])).toString();
   const q = useQuery({ queryKey: ['templates', qs], queryFn: () => api<{ items: Row[]; total: number; size: number }>(`/templates?${qs}`) });
 

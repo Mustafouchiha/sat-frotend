@@ -129,6 +129,14 @@ export default function Home() {
           </div>
           {d.daily.done ? <span className="text-2xl">✅</span> : <span className="text-hint">›</span>}
         </Card>
+        <Card onClick={() => nav('/ai')} className="flex items-center gap-3">
+          <div className="text-3xl">🤖</div>
+          <div className="flex-1">
+            <div className="font-semibold">{t('home.ai')}</div>
+            <div className="text-sm text-hint">{t('home.aiDesc')}</div>
+          </div>
+          <span className="text-hint">›</span>
+        </Card>
         {d.reviewDue > 0 && (
           <Card onClick={() => nav('/mistakes')} className="flex items-center gap-3">
             <div className="text-3xl">🔁</div>
