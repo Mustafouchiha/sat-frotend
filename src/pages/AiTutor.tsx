@@ -29,7 +29,7 @@ interface AiMsg {
   content: string;
   channel: string;
   createdAt: string;
-  context: { kind: 'question' | 'lesson'; title: string | null; skillId: string | null } | null;
+  context: { kind: 'question' | 'lesson' | 'review'; title: string | null; skillId: string | null } | null;
   imageUrl: string | null;
   /** Javob kutilayotgan vaqtinchalik xabar */
   pending?: boolean;
@@ -53,7 +53,7 @@ function Bubble({ m }: { m: AiMsg }) {
       >
         {m.context?.title && (
           <div className={clsx('mb-1 text-xs font-semibold', mine ? 'opacity-80' : 'text-hint')}>
-            {m.context.kind === 'lesson' ? '📚' : '📎'} {m.context.title}
+            {m.context.kind === 'lesson' ? '📚' : m.context.kind === 'review' ? '📊' : '📎'} {m.context.title}
           </div>
         )}
         {m.imageUrl && <img src={mediaUrl(m.imageUrl)} alt="" className="mb-1.5 max-h-56 rounded-xl object-contain" />}
@@ -132,23 +132,27 @@ export default function AiTutor() {
     if (e instanceof ApiError && ['AI_LIMIT', 'AI_BUSY', 'AI_OFF', 'AI_DISABLED', 'AI_BUDGET'].includes(e.code ?? '')) void status.refetch();
   };
 
-  // Xatolar daftaridan «Tushuntir»: mavzu darsi
+  // Xatolar daftaridan «Tushuntir» (?lesson=) yoki test natijasidan «Xatolarimni tahlil qil» (?attempt=) — avtomatik so'rov
   useEffect(() => {
     const skillId = params.get('lesson');
-    if (!skillId || !st?.enabled || lessonStarted.current || history.isLoading) return;
+    const attemptId = params.get('attempt');
+    if ((!skillId && !attemptId) || !st?.enabled || lessonStarted.current || history.isLoading) return;
     lessonStarted.current = true;
     const tempId = `tmp-${Date.now()}`;
+    const label = skillId ? t('ai.lessonAsk') : t('ai.reviewAsk');
     setMsgs((list) => [
       ...list,
-      { id: tempId, role: 'user', content: t('ai.lessonAsk'), channel: 'app', createdAt: new Date().toISOString(), context: null, imageUrl: null, pending: true },
+      { id: tempId, role: 'user', content: label, channel: 'app', createdAt: new Date().toISOString(), context: null, imageUrl: null, pending: true },
     ]);
     setBusy(true);
-    api<ChatResp>('/ai/lesson', { body: { skillId } })
+    const req = skillId ? api<ChatResp>('/ai/lesson', { body: { skillId } }) : api<ChatResp>('/ai/review-attempt', { body: { attemptId } });
+    req
       .then((r) => onResult(r, tempId))
       .catch((e) => onFail(e, tempId))
       .finally(() => {
         setBusy(false);
         params.delete('lesson');
+        params.delete('attempt');
         setParams(params, { replace: true });
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps

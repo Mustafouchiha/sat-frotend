@@ -18,6 +18,8 @@ interface TestRow {
   moduleCount: number;
   questionCount: number;
   durationMin: number;
+  /** AI savol yozayotgan/yozgan test */
+  ai: { running: boolean; total: number; done: number; created: number } | null;
 }
 
 type TestType = 'MOCK' | 'SECTION' | 'MODULE' | 'TOPIC' | 'HOMEWORK' | 'QUICK';
@@ -25,7 +27,13 @@ type TestType = 'MOCK' | 'SECTION' | 'MODULE' | 'TOPIC' | 'HOMEWORK' | 'QUICK';
 export default function AdminTests() {
   const qc = useQueryClient();
   const tax = useTaxonomy();
-  const q = useQuery({ queryKey: ['tests-all'], queryFn: () => api<TestRow[]>('/tests') });
+  const q = useQuery({
+    queryKey: ['tests-all'],
+    queryFn: () => api<TestRow[]>('/tests'),
+    // AI savol yozayotgan bo'lsa — holat yangilanib tursin
+    refetchInterval: (query) => (query.state.data?.some((t) => t.ai?.running) ? 4000 : false),
+  });
+  const usage = useQuery({ queryKey: ['ai-usage'], queryFn: () => api<{ configured: boolean; budgetUsd: number; today: { totalUsd: number } }>('/ai/usage') });
   const [open, setOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   const [f, setF] = useState({
@@ -38,6 +46,7 @@ export default function AdminTests() {
     domainIds: [] as string[],
     difficulty: '',
     isPublic: false,
+    ai: false,
   });
 
   const create = useMutation({
@@ -53,10 +62,11 @@ export default function AdminTests() {
           domainIds: f.domainIds.length ? f.domainIds : undefined,
           difficulty: f.difficulty || null,
           isPublic: f.isPublic,
+          ai: f.ai,
         },
-      }),
-    onSuccess: () => {
-      toast('Test yaratildi', { icon: '✅' });
+      }) as Promise<{ ai: { jobs: number; questions: number } | null }>,
+    onSuccess: (r) => {
+      toast(r.ai ? `Test yaratildi — AI ${r.ai.questions} ta savol yozmoqda` : 'Test yaratildi', { icon: r.ai ? '🤖' : '✅' });
       setOpen(false);
       void qc.invalidateQueries({ queryKey: ['tests-all'] });
     },
@@ -69,6 +79,13 @@ export default function AdminTests() {
   });
 
   const single = ['MODULE', 'TOPIC', 'QUICK', 'HOMEWORK'].includes(f.type);
+  // AI uchun taxmin: savollar soni (buildAutoModules qoidasi), narx va vaqt
+  const perModule = (sec: 'RW' | 'MATH') => (f.questionsPerModule ? Number(f.questionsPerModule) : f.type === 'QUICK' ? 10 : sec === 'RW' ? 27 : 22);
+  const aiCount = f.sections.reduce((n, sec) => n + perModule(sec) * (single ? 1 : f.adaptive ? 3 : 2), 0);
+  const aiCost = [aiCount * 0.05, aiCount * 0.15];
+  const aiMinutes = Math.max(2, Math.round((Math.ceil(aiCount / 5) * 1.5) / 2));
+  const budget = usage.data?.budgetUsd ?? 0;
+  const budgetLeft = budget > 0 ? Math.max(0, budget - (usage.data?.today.totalUsd ?? 0)) : null;
   const domains = (tax.data ?? []).filter((d) => f.sections.includes(d.section));
 
   return (
@@ -106,6 +123,11 @@ export default function AdminTests() {
             <div className="mt-1 text-xs text-hint">
               {t.sections.join(' + ')} · {t.moduleCount} modul · {t.questionCount} savol · {t.durationMin} daq
             </div>
+            {t.ai && (
+              <div className={`mt-1 text-xs ${t.ai.running ? 'text-accent' : 'text-hint'}`}>
+                🤖 {t.ai.running ? `AI yozmoqda: ${t.ai.done}/${t.ai.total} · ${t.ai.created} ta tayyor` : `AI yozgan savollar: ${t.ai.created} / ${t.ai.total}`}
+              </div>
+            )}
             <div className="mt-2 text-right">
               <button className="text-xs text-red-500" onClick={async () => (await confirmDialog(`"${t.title}" o'chirilsinmi?`)) && del.mutate(t.id)}>
                 🗑 o'chirish
@@ -191,6 +213,22 @@ export default function AdminTests() {
           <input type="checkbox" checked={f.isPublic} onChange={(e) => setF({ ...f, isPublic: e.target.checked })} />
           Barcha o'quvchilar uchun ochiq (Testlar → Ochiq testlar)
         </label>
+        <label className={`mb-1 flex items-start gap-2 rounded-xl p-2 text-sm ${f.ai ? 'bg-accent/10' : 'bg-soft'}`}>
+          <input type="checkbox" className="mt-1" disabled={!usage.data?.configured} checked={f.ai} onChange={(e) => setF({ ...f, ai: e.target.checked })} />
+          <span>
+            <span className="font-medium">🤖 Savollarni AI yangidan yozsin (real SAT qiyinligida)</span>
+            <span className="block text-xs text-hint">
+              {usage.data?.configured
+                ? `${aiCount} ta savol · taxminan $${aiCost[0].toFixed(1)}–${aiCost[1].toFixed(1)} · ~${aiMinutes} daqiqa. Har bir savolni ikkinchi AI tekshiradi. Tayyor bo'lguncha test bank savollari bilan ishlaydi.`
+                : "AI ulanmagan (Railway'da ANTHROPIC_API_KEY yo'q)"}
+            </span>
+          </span>
+        </label>
+        {f.ai && budgetLeft !== null && aiCost[1] > budgetLeft && (
+          <p className="mb-2 rounded-lg bg-orange-500/10 p-2 text-xs text-orange-600">
+            Bugungi AI byudjetidan ~${budgetLeft.toFixed(2)} qoldi — AI shunga yetganicha savol yozadi, qolganlari bankdan olinadi. To'liq mock uchun AI qimmat: mavzu, modul yoki tezkor testlarda ishlating yoki byudjetni oshiring.
+          </p>
+        )}
         <Button size="lg" disabled={!f.title.trim()} loading={create.isPending} onClick={() => create.mutate()}>
           Yaratish
         </Button>

@@ -26,7 +26,7 @@ interface Job {
   id: string;
   status: 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED';
   section: Section;
-  reason: 'admin' | 'student' | 'refill';
+  reason: 'admin' | 'student' | 'refill' | 'test';
   mode: 'topic' | 'sample';
   count: number;
   skillIds: string[];
@@ -83,7 +83,7 @@ const STATUS: Record<Job['status'], [string, string]> = {
   DONE: ['Tayyor', '#16a34a'],
   FAILED: ['Xato', '#dc2626'],
 };
-const REASON: Record<Job['reason'], string> = { admin: 'Admin', student: "O'quvchi so'radi", refill: "Avto-to'ldirish" };
+const REASON: Record<Job['reason'], string> = { admin: 'Admin', student: "O'quvchi so'radi", refill: "Avto-to'ldirish", test: 'Test uchun' };
 const usd = (x: number) => `$${x.toFixed(2)}`;
 
 function readBase64(file: File): Promise<string> {
@@ -446,7 +446,7 @@ export default function AiStudio() {
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between px-1">
             <div className="font-semibold">Vazifalar</div>
-            <Link to="/admin/templates?search=ai" className="text-sm text-link">
+            <Link to="/admin/templates?tag=ai" className="text-sm text-link">
               AI savollar ro'yxati →
             </Link>
           </div>

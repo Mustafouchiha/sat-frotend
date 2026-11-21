@@ -40,9 +40,9 @@ export default function TemplatesList() {
   const user = useAuth((s) => s.user);
   const isOperator = hasRole(user, 'OPERATOR');
   const tax = useTaxonomy();
-  // ?search=ai — AI generatoridan «AI savollar ro'yxati» havolasi
+  // ?tag=ai — AI generatoridan «AI savollar ro'yxati» havolasi (faqat shu tegdagi savollar)
   const [params] = useSearchParams();
-  const [f, setF] = useState({ search: params.get('search') ?? '', section: '', domainId: '', difficulty: '', status: '', page: 1 });
+  const [f, setF] = useState({ search: params.get('search') ?? '', tag: params.get('tag') ?? '', section: '', domainId: '', difficulty: '', status: '', page: 1 });
   const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v !== '' && v !== 0).map(([k, v]) => [k, String(v)])).toString();
   const q = useQuery({ queryKey: ['templates', qs], queryFn: () => api<{ items: Row[]; total: number; size: number }>(`/templates?${qs}`) });
 
@@ -62,6 +62,11 @@ export default function TemplatesList() {
 
   return (
     <Page title="📚 Savollar banki" back wide actions={<Button size="sm" onClick={() => nav('/admin/templates/new')}>➕ Yangi</Button>}>
+      {f.tag && (
+        <button onClick={() => set('tag', '')} className="mb-2 rounded-full bg-accent/10 px-3 py-1 text-sm text-accent">
+          {f.tag === 'ai' ? '🤖 Faqat AI yozgan savollar' : `#${f.tag}`} ✕
+        </button>
+      )}
       <Card className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-6">
         <input className={`${inputCls} col-span-2`} placeholder="Qidiruv (nom, ID, teg)" value={f.search} onChange={(e) => set('search', e.target.value)} />
         <select className={inputCls} value={f.section} onChange={(e) => set('section', e.target.value)}>

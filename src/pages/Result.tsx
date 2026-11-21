@@ -144,6 +144,12 @@ export default function Result() {
         </>
       )}
 
+      {(!r.student || r.student.id === meId) && s.correct < s.total && (
+        <Button size="lg" className="mt-3" onClick={() => nav(`/ai?attempt=${r.id}`)}>
+          {t('result.aiReview')}
+        </Button>
+      )}
+
       {r.items && (
         <>
           <SectionTitle>{t('result.questions')}</SectionTitle>

@@ -322,6 +322,11 @@ export function SessionReview() {
           {q.data.attempt.correct}/{q.data.attempt.total}
         </div>
       </Card>
+      {q.data.attempt.correct < q.data.attempt.total && (
+        <Link to={`/ai?attempt=${q.data.attempt.id}`} className="mb-3 block rounded-xl bg-accent px-4 py-3 text-center font-semibold text-accent-text active:scale-[0.99]">
+          {t('result.aiReview')}
+        </Link>
+      )}
       <ReviewList items={q.data.items} />
       <div className="mt-4">
         <Link to="/mistakes" className="text-sm text-link">
