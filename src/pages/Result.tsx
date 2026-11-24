@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Page } from '../components/Layout';
+import { ScoreBreakdown } from '../components/ScoreBreakdown';
 import { Badge, Button, Card, ErrorBox, Loading, ProgressBar, SectionTitle } from '../components/ui';
 import { api } from '../lib/api';
 import { fmtDate, fmtDelta, fmtTime } from '../lib/format';
 import { useT } from '../lib/i18n';
 import { useAuth } from '../store/auth';
-import type { ReviewQuestion } from '../lib/types';
+import type { RatingBreakdown, ReviewQuestion } from '../lib/types';
 import { ReviewList } from './Session';
 
 interface ResultData {
@@ -19,7 +20,17 @@ interface ResultData {
   blurCount: number;
   hidden: boolean;
   availableAt?: string;
-  scores?: { rwScaled: number | null; mathScaled: number | null; totalScaled: number | null; rwRaw: number | null; mathRaw: number | null; correct: number; total: number; ratingDelta: number };
+  scores?: {
+    rwScaled: number | null;
+    mathScaled: number | null;
+    totalScaled: number | null;
+    rwRaw: number | null;
+    mathRaw: number | null;
+    correct: number;
+    total: number;
+    ratingDelta: number;
+    breakdown?: RatingBreakdown;
+  };
   modules?: Array<{ order: number; section: 'RW' | 'MATH'; stage: number; variant?: string; correct: number; total: number }>;
   domains?: Array<{ id: string; name: string; correct: number; total: number }>;
   items?: Array<{
@@ -99,10 +110,11 @@ export default function Result() {
         </div>
         <div className="mt-3 flex flex-wrap justify-center gap-2">
           <Badge>⏱ {fmtTime(duration)}</Badge>
-          <Badge color={s.ratingDelta >= 0 ? '#16a34a' : '#dc2626'}>
-            {t('session.ratingChange')}: {fmtDelta(s.ratingDelta)}
-          </Badge>
           {r.blurCount > 0 && <Badge color="#f59e0b">↗ {r.blurCount}</Badge>}
+        </div>
+        {/* Ball test tugagach qo'shiladi: to'g'ri javoblar uchun +, xatolar uchun −, reyting oldin → keyin */}
+        <div className="mt-3">
+          <ScoreBreakdown b={s.breakdown} total={s.ratingDelta} />
         </div>
       </Card>
 

@@ -33,7 +33,11 @@ export default function AdminTests() {
     // AI savol yozayotgan bo'lsa — holat yangilanib tursin
     refetchInterval: (query) => (query.state.data?.some((t) => t.ai?.running) ? 4000 : false),
   });
-  const usage = useQuery({ queryKey: ['ai-usage'], queryFn: () => api<{ configured: boolean; budgetUsd: number; today: { totalUsd: number } }>('/ai/usage') });
+  const usage = useQuery({
+    queryKey: ['ai-usage'],
+    queryFn: () => api<{ configured: boolean; budgetUsd: number; rwVariants: boolean; today: { totalUsd: number } }>('/ai/usage'),
+  });
+  const [jsonOpen, setJsonOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   const [f, setF] = useState({
@@ -62,7 +66,7 @@ export default function AdminTests() {
           domainIds: f.domainIds.length ? f.domainIds : undefined,
           difficulty: f.difficulty || null,
           isPublic: f.isPublic,
-          ai: f.ai,
+          ai: f.ai && aiAllowed,
         },
       }) as Promise<{ ai: { jobs: number; questions: number } | null }>,
     onSuccess: (r) => {
@@ -81,7 +85,9 @@ export default function AdminTests() {
   const single = ['MODULE', 'TOPIC', 'QUICK', 'HOMEWORK'].includes(f.type);
   // AI uchun taxmin: savollar soni (buildAutoModules qoidasi), narx va vaqt
   const perModule = (sec: 'RW' | 'MATH') => (f.questionsPerModule ? Number(f.questionsPerModule) : f.type === 'QUICK' ? 10 : sec === 'RW' ? 27 : 22);
-  const aiCount = f.sections.reduce((n, sec) => n + perModule(sec) * (single ? 1 : f.adaptive ? 3 : 2), 0);
+  // AI faqat English (R&W) savollarining variantini yozadi — Math'da sonlar o'zi o'zgaradi
+  const aiCount = f.sections.includes('RW') ? perModule('RW') * (single ? 1 : f.adaptive ? 3 : 2) : 0;
+  const aiAllowed = !!usage.data?.configured && !!usage.data?.rwVariants && aiCount > 0;
   const aiCost = [aiCount * 0.05, aiCount * 0.15];
   const aiMinutes = Math.max(2, Math.round((Math.ceil(aiCount / 5) * 1.5) / 2));
   const budget = usage.data?.budgetUsd ?? 0;
@@ -95,6 +101,9 @@ export default function AdminTests() {
       wide
       actions={
         <div className="flex gap-2">
+          <Button size="sm" variant="secondary" onClick={() => setJsonOpen(true)}>
+            📥 JSON
+          </Button>
           <Button size="sm" variant="secondary" onClick={() => setManualOpen(true)}>
             ✋ Qo'lda
           </Button>
@@ -105,8 +114,7 @@ export default function AdminTests() {
       }
     >
       <Card className="mb-3 text-sm text-hint">
-        Avto test har bir o'quvchiga savollar to'plamidan (domen/qiyinlik bo'yicha) tasodifiy shablonlar va o'z sonlarini beradi — yonma-yon o'tirganlar har xil
-        savol ko'radi. Mock test real SAT kabi: R&W 2×27 (32 daq), Math 2×22 (35 daq), 2-modul adaptiv.
+        Test yaratilganda savollar bankdan bir marta tanlanadi — hamma o'quvchi bir xil savollarni ishlaydi (Math'da sonlar har kimga o'zi, English hammaga aynan bir xil). Tayyor testni (butun imtihon) «📥 JSON» orqali yuklang. Mock test real SAT kabi: R&W 2×27 (32 daq), Math 2×22 (35 daq), 2-modul adaptiv.
       </Card>
       {q.isLoading && <Loading />}
       <div className="grid gap-2 sm:grid-cols-2">
@@ -214,19 +222,23 @@ export default function AdminTests() {
           Barcha o'quvchilar uchun ochiq (Testlar → Ochiq testlar)
         </label>
         <label className={`mb-1 flex items-start gap-2 rounded-xl p-2 text-sm ${f.ai ? 'bg-accent/10' : 'bg-soft'}`}>
-          <input type="checkbox" className="mt-1" disabled={!usage.data?.configured} checked={f.ai} onChange={(e) => setF({ ...f, ai: e.target.checked })} />
+          <input type="checkbox" className="mt-1" disabled={!aiAllowed} checked={f.ai && aiAllowed} onChange={(e) => setF({ ...f, ai: e.target.checked })} />
           <span>
-            <span className="font-medium">🤖 Savollarni AI yangidan yozsin (real SAT qiyinligida)</span>
+            <span className="font-medium">🤖 English savollarining yangi variantini AI yozsin (bitta — hammaga bir xil)</span>
             <span className="block text-xs text-hint">
-              {usage.data?.configured
-                ? `${aiCount} ta savol · taxminan $${aiCost[0].toFixed(1)}–${aiCost[1].toFixed(1)} · ~${aiMinutes} daqiqa. Har bir savolni ikkinchi AI tekshiradi. Tayyor bo'lguncha test bank savollari bilan ishlaydi.`
-                : "AI ulanmagan (Railway'da ANTHROPIC_API_KEY yo'q)"}
+              {!usage.data?.configured
+                ? "AI ulanmagan (Railway'da ANTHROPIC_API_KEY yo'q)"
+                : !usage.data.rwVariants
+                  ? "English variantlari AI sozlamalarida o'chirilgan"
+                  : aiCount === 0
+                    ? "Testda English (R&W) bo'limi yo'q — Math'da sonlar o'zi o'zgaradi"
+                    : `${aiCount} ta English savol · taxminan $${aiCost[0].toFixed(1)}–${aiCost[1].toFixed(1)} · ~${aiMinutes} daqiqa. Har bir variantni ikkinchi AI tekshiradi; tayyor bo'lguncha bankdagi asl savol turadi.`}
             </span>
           </span>
         </label>
-        {f.ai && budgetLeft !== null && aiCost[1] > budgetLeft && (
+        {f.ai && aiAllowed && budgetLeft !== null && aiCost[1] > budgetLeft && (
           <p className="mb-2 rounded-lg bg-orange-500/10 p-2 text-xs text-orange-600">
-            Bugungi AI byudjetidan ~${budgetLeft.toFixed(2)} qoldi — AI shunga yetganicha savol yozadi, qolganlari bankdan olinadi. To'liq mock uchun AI qimmat: mavzu, modul yoki tezkor testlarda ishlating yoki byudjetni oshiring.
+            Bugungi AI byudjetidan ~${budgetLeft.toFixed(2)} qoldi — AI shunga yetganicha variant yozadi, qolganlarida bankdagi asl savol qoladi. To'liq mock uchun AI qimmat: mavzu, modul yoki tezkor testlarda ishlating yoki byudjetni oshiring.
           </p>
         )}
         <Button size="lg" disabled={!f.title.trim()} loading={create.isPending} onClick={() => create.mutate()}>
@@ -234,6 +246,7 @@ export default function AdminTests() {
         </Button>
       </Sheet>
       <ManualTestSheet open={manualOpen} onClose={() => setManualOpen(false)} onDone={() => void qc.invalidateQueries({ queryKey: ['tests-all'] })} />
+      <JsonImportSheet open={jsonOpen} onClose={() => setJsonOpen(false)} onDone={() => void qc.invalidateQueries({ queryKey: ['tests-all'] })} />
     </Page>
   );
 }
@@ -306,6 +319,133 @@ function ManualTestSheet({ open, onClose, onDone }: { open: boolean; onClose: ()
       <Button size="lg" className="mt-3" disabled={!title.trim() || picked.length === 0} loading={create.isPending} onClick={() => create.mutate()}>
         Yaratish ({picked.length} savol)
       </Button>
+    </Sheet>
+  );
+}
+
+interface ImportReport {
+  kind: 'test' | 'questions';
+  dryRun: boolean;
+  total: number;
+  created: number;
+  reused: number;
+  errors: Array<{ path: string; reason: string }>;
+  test: { id: string; title: string; questions: number } | null;
+}
+
+/** Tayyor test (butun imtihon) yoki savollar — yagona JSON format: tekshirish va import. */
+function JsonImportSheet({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
+  const tax = useTaxonomy();
+  const [text, setText] = useState('');
+  const [report, setReport] = useState<ImportReport | null>(null);
+  const [busy, setBusy] = useState<'check' | 'import' | null>(null);
+
+  const run = async (dryRun: boolean) => {
+    let json: unknown;
+    try {
+      json = JSON.parse(text);
+    } catch (e) {
+      toast(`JSON xato: ${(e as Error).message}`, { kind: 'error' });
+      return;
+    }
+    setBusy(dryRun ? 'check' : 'import');
+    try {
+      const r = await api<ImportReport>('/tests/import', { body: { json, dryRun } });
+      setReport(r);
+      if (!dryRun && !r.errors.length) {
+        toast(r.test ? `Test yaratildi: ${r.test.title}` : `${r.created} ta savol qo'shildi`, { icon: '✅' });
+        onDone();
+      }
+    } catch (e) {
+      toast(errorText(e), { kind: 'error' });
+    } finally {
+      setBusy(null);
+    }
+  };
+  const example = async () => {
+    try {
+      setText(JSON.stringify(await api('/tests/import/example'), null, 2));
+      setReport(null);
+    } catch (e) {
+      toast(errorText(e), { kind: 'error' });
+    }
+  };
+
+  return (
+    <Sheet open={open} onClose={onClose} title="📥 Tayyor test yoki savollar (JSON)" wide>
+      <p className="mb-2 text-sm text-hint">
+        Bitta format. To'liq test: <code>{'{ "title", "modules": [ { "section", "minutes", "questions": [ … ] } ] }'}</code>. Faqat savollar (bankka):{' '}
+        <code>{'{ "questions": [ … ] }'}</code>. Savol: <code>skill</code>, <code>difficulty</code>, <code>passage</code>, <code>question</code>,{' '}
+        <code>choices</code> (4 ta; Math'da yozma javobda yo'q), <code>answer</code> (A–D yoki son), <code>explanation</code>, <code>figure</code> (SVG). Test
+        faqat hamma savol to'g'ri bo'lsa yaratiladi; hamma o'quvchi bir xil savollarni oladi.
+      </p>
+      <div className="mb-2 flex flex-wrap items-center gap-3">
+        <input
+          type="file"
+          accept=".json,application/json,.txt"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void f.text().then((t) => (setText(t), setReport(null)));
+          }}
+        />
+        <button className="text-sm text-link" onClick={() => void example()}>
+          Namuna
+        </button>
+      </div>
+      <textarea
+        className={`${inputCls} font-mono text-xs`}
+        rows={12}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setReport(null);
+        }}
+        spellCheck={false}
+        placeholder='{ "title": "SAT Practice Test 1", "modules": [ … ] }'
+      />
+      <div className="mt-2 flex gap-2">
+        <Button variant="secondary" disabled={!text.trim()} loading={busy === 'check'} onClick={() => void run(true)}>
+          🔍 Tekshirish
+        </Button>
+        <Button disabled={!text.trim()} loading={busy === 'import'} onClick={() => void run(false)}>
+          📥 Import
+        </Button>
+      </div>
+      {report && (
+        <div className="mt-3 text-sm">
+          <div className="mb-1 font-semibold">
+            {report.errors.length
+              ? `${report.errors.length} ta xato — ${report.kind === 'test' ? 'test yaratilmadi' : "to'g'ri savollar qo'shildi"}`
+              : report.dryRun
+                ? `✅ Hammasi to'g'ri — ${report.total} ta savol`
+                : report.test
+                  ? `✅ Test yaratildi: «${report.test.title}» — ${report.test.questions} ta savol`
+                  : `✅ ${report.created} ta yangi savol qo'shildi`}
+          </div>
+          {!report.dryRun && (report.created > 0 || report.reused > 0) && (
+            <div className="mb-1 text-xs text-hint">
+              Yangi: {report.created} · bankda bor edi (qayta ishlatildi): {report.reused}
+            </div>
+          )}
+          {report.errors.map((e, i) => (
+            <div key={i} className="mb-1 rounded-lg bg-red-500/10 p-2 text-xs">
+              <b>{e.path || 'JSON'}</b>: {e.reason}
+            </div>
+          ))}
+        </div>
+      )}
+      <details className="mt-3 text-xs">
+        <summary className="cursor-pointer text-hint">Ko'nikmalar (skill) ro'yxati</summary>
+        <div className="mt-2 grid gap-1 sm:grid-cols-2">
+          {(tax.data ?? []).flatMap((d) =>
+            d.skills.map((sk) => (
+              <div key={sk.id}>
+                <code>{sk.id}</code> — {sk.name} <span className="text-hint">({d.section === 'MATH' ? 'Math' : 'R&W'})</span>
+              </div>
+            )),
+          )}
+        </div>
+      </details>
     </Sheet>
   );
 }

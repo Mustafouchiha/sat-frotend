@@ -45,6 +45,8 @@ interface Job {
 
 interface Usage {
   configured: boolean;
+  questionGen: boolean;
+  rwVariants: boolean;
   budgetUsd: number;
   today: { chatUsd: number; generateUsd: number; totalUsd: number; messages: number; questions: number };
   month: { chatUsd: number; generateUsd: number; totalUsd: number; messages: number; questions: number };
@@ -62,6 +64,8 @@ interface AiSettings {
   refillDailyJobs: number;
   studentDailyJobs: number;
   dailyBudgetUsd: number;
+  questionGen: boolean;
+  rwVariants: boolean;
 }
 
 interface PickedFile {
@@ -160,6 +164,7 @@ function SettingsCard() {
       await api('/admin/settings/ai', { method: 'PUT', body: { value: v } });
       toast('Saqlandi', { kind: 'success', icon: '✅' });
       void qc.invalidateQueries({ queryKey: ['settings'] });
+      void qc.invalidateQueries({ queryKey: ['ai-usage'] });
     } catch (e) {
       toast(errorText(e), { kind: 'error' });
     } finally {
@@ -175,7 +180,7 @@ function SettingsCard() {
       ))}
     </select>
   );
-  const toggle = (k: 'chatEnabled' | 'autoPublish' | 'autoRefill', text: string, hint: string) => (
+  const toggle = (k: 'chatEnabled' | 'autoPublish' | 'autoRefill' | 'questionGen' | 'rwVariants', text: string, hint: string) => (
     <label className="flex items-start gap-3 rounded-xl bg-soft p-3">
       <input type="checkbox" checked={v[k]} onChange={(e) => set(k, e.target.checked)} className="mt-1 h-4 w-4" />
       <span>
@@ -215,6 +220,8 @@ function SettingsCard() {
       </div>
       <div className="mt-3 flex flex-col gap-2">
         {toggle('chatEnabled', 'AI ustoz yoqilgan', 'Mini App va Telegram botda chat')}
+        {toggle('rwVariants', 'Testlarda English variantlari', "Test yaratilganda English savollarining bitta yangi variantini AI yozadi — hammaga bir xil")}
+        {toggle('questionGen', "AI noldan savol yozsin", "Generator, avto-to'ldirish, «Yangi savollar» va shablon muharriridagi AI. O'chiq — savollar faqat JSON orqali (pul tejaladi)")}
         {toggle('autoPublish', 'Tekshiruvdan o\'tgan savollar darhol bankka', "O'chirilsa — «Tekshiruvda» holatida qoladi, siz tasdiqlaysiz")}
         {toggle('autoRefill', "Avto-to'ldirish", "O'quvchi bankdagi barcha savollarni ko'rib bo'lgan mavzuga AI o'zi yangi savollar qo'shadi")}
       </div>
@@ -310,7 +317,7 @@ export default function AiStudio() {
 
   const u = usage.data;
   return (
-    <Page title="🤖 AI savol generatori" back wide>
+    <Page title="🤖 AI: chat, variantlar, xarajat" back wide>
       {u && !u.configured && (
         <Card className="mb-3 border-2 border-orange-400/50 text-sm">
           <div className="mb-1 font-semibold">AI hali ulanmagan</div>
@@ -334,6 +341,14 @@ export default function AiStudio() {
 
       <div className="grid gap-3 lg:grid-cols-[1.1fr_1fr]">
         <div className="flex flex-col gap-3">
+          {u && !u.questionGen && (
+            <Card className="text-sm">
+              <div className="mb-1 font-semibold">AI faqat chat va English variantlari uchun</div>
+              AI noldan savol yozmaydi (pul tejaladi): savollar va tayyor testlar <b>Testlar → «📥 JSON»</b> orqali qo'shiladi. AI o'quvchilarga chatda javob beradi
+              va test yaratilganda English savollarining bitta variantini yozadi. Generatorni qayta yoqish — pastdagi sozlamalarda.
+            </Card>
+          )}
+          {u?.questionGen && (
           <Card>
             <Segmented
               value={section}
@@ -440,6 +455,7 @@ export default function AiStudio() {
             </Button>
             <p className="mt-2 text-center text-xs text-hint">Taxminan 1 savol ≈ 1–2 daqiqa va $0.05–0.15 (Opus + tekshiruv). Sahifani yopsangiz ham ish davom etadi.</p>
           </Card>
+          )}
           <SettingsCard />
         </div>
 

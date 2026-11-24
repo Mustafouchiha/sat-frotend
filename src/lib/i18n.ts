@@ -328,6 +328,10 @@ const uz = {
   'ai.budget': 'AI bugungi limitga yetdi — ertaga yana ishlaydi',
   'ai.reviewAsk': "📊 Natijamni tahlil qiling",
   'result.aiReview': "🤖 Xatolarimni AI tahlil qilsin",
+  'score.gained': "To'g'ri javoblar uchun",
+  'score.lost': "Xatolar uchun",
+  'score.rating': "Reyting",
+  'session.examMode': "natija test oxirida",
 } as const;
 
 export type I18nKey = keyof typeof uz;
@@ -647,6 +651,10 @@ const ru: Dict = {
   'ai.budget': 'AI исчерпал дневной лимит — заработает завтра',
   'ai.reviewAsk': "📊 Разберите мой результат",
   'result.aiReview': "🤖 AI-разбор моих ошибок",
+  'score.gained': "За верные ответы",
+  'score.lost': "За ошибки",
+  'score.rating': "Рейтинг",
+  'session.examMode': "результат в конце",
 };
 
 const en: Dict = {
@@ -963,6 +971,10 @@ const en: Dict = {
   'ai.budget': "The AI has reached today's limit — it works again tomorrow",
   'ai.reviewAsk': "📊 Review my result",
   'result.aiReview': "🤖 AI review of my mistakes",
+  'score.gained': "For correct answers",
+  'score.lost': "For mistakes",
+  'score.rating': "Rating",
+  'session.examMode': "results at the end",
 };
 
 const DICTS: Record<Lang, Dict> = { uz, ru, en };

@@ -85,16 +85,30 @@ export interface SessionState {
   serverNow: string;
   total: number | null;
   answered: number;
-  correct: number;
-  mistakes: number;
+  /** Imtihon rejimida (kunlik test) test tugaguncha null */
+  correct: number | null;
+  mistakes: number | null;
   lives: number | null;
   ratingDelta: number;
   duelId: string | null;
+  /** Imtihon rejimi: natija va ball test tugagach */
+  hidden?: boolean;
+  /** Tugagach: qo'shilgan va ayirilgan ball, reyting oldin → keyin */
+  breakdown?: RatingBreakdown;
   index?: number;
   question: (Question & { order: number }) | null;
 }
 
+export interface RatingBreakdown {
+  gained: number;
+  lost: number;
+  before: number | null;
+  after: number | null;
+}
+
 export interface AnswerResult {
+  /** Imtihon rejimi: javob saqlandi, natija test tugagach */
+  hidden?: boolean;
   correct: boolean;
   correctLabel?: string;
   correctDisplay: string;

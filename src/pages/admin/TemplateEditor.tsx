@@ -159,6 +159,9 @@ export default function TemplateEditor() {
   const user = useAuth((s) => s.user);
   const isOperator = hasRole(user, 'OPERATOR');
   const tax = useTaxonomy();
+  // AI noldan savol yozish sozlamada o'chiq bo'lsa (standart) — muharrirda AI tugmasi ko'rinmaydi
+  const aiStatus = useQuery({ queryKey: ['ai-status'], enabled: isOperator, queryFn: () => api<{ questionGen?: boolean }>('/ai/status') });
+  const aiGen = isOperator && !!aiStatus.data?.questionGen;
   const existing = useQuery({ queryKey: ['template', id], enabled: !isNew, queryFn: () => api<Record<string, unknown>>(`/templates/${id}`) });
 
   const [meta, setMeta] = useState<Meta>({
@@ -357,7 +360,7 @@ export default function TemplateEditor() {
           setMode('form');
         }}
         onAi={
-          isOperator
+          aiGen
             ? (r, imageId) => {
                 const next = normalizeSpec(r.spec);
                 setSpec(next);

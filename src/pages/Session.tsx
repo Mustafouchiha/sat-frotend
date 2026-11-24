@@ -7,6 +7,7 @@ import { MathText } from '../components/MathText';
 import { QuestionView } from '../components/QuestionView';
 import { AskAiButton } from '../components/AskAi';
 import { ReportButton } from '../components/ReportSheet';
+import { ScoreBreakdown } from '../components/ScoreBreakdown';
 import { TimerPill, useCountdown } from '../components/Timer';
 import { toast } from '../components/Toast';
 import { Badge, Button, Card, ErrorBox, Loading } from '../components/ui';
@@ -126,9 +127,16 @@ export default function SessionRunner() {
       const r = await api<AnswerResult>(`/sessions/${id}/answer`, {
         body: { order: s.question.order, answer: v, timeSpentMs: Date.now() - shownAt.current },
       });
+      for (const a of r.achievements) toast(`${a.name}`, { icon: a.icon, kind: 'success' });
+      if (r.hidden) {
+        // Imtihon rejimi (kunlik test): natija ko'rsatilmaydi — darhol keyingi savol, oxirida javoblar va ball
+        haptic('light');
+        if (r.finished) void qc.invalidateQueries({ queryKey: ['dashboard'] });
+        void q.refetch();
+        return;
+      }
       haptic(r.correct ? 'success' : 'error');
       setDeltaKey((k) => k + 1);
-      for (const a of r.achievements) toast(`${a.name}`, { icon: a.icon, kind: 'success' });
       if (isRush) {
         // Rush: izohsiz, darhol keyingi savol
         setResult(r);
@@ -173,7 +181,8 @@ export default function SessionRunner() {
             ) : (
               <>
                 {t('session.question')} {s.answered + 1}
-                {total ? ` / ${total}` : ''} · ✓ {s.correct}
+                {total ? ` / ${total}` : ''}
+                {s.hidden ? ` · ${t('session.examMode')}` : ` · ✓ ${s.correct}`}
               </>
             )}
           </div>
@@ -254,21 +263,24 @@ export default function SessionRunner() {
 function SessionSummary({ s }: { s: SessionState }) {
   const t = useT();
   const nav = useNavigate();
-  const accuracy = s.answered ? Math.round((s.correct / s.answered) * 100) : 0;
+  const correct = s.correct ?? 0;
+  const accuracy = s.answered ? Math.round((correct / s.answered) * 100) : 0;
   return (
     <Page title={t('session.finished')}>
       <Card className="text-center">
         <div className="mb-2 text-5xl">{s.mode === 'RUSH' ? '⚡' : accuracy >= 80 ? '🏆' : accuracy >= 50 ? '👍' : '💪'}</div>
         <div className="text-sm text-hint">{s.title}</div>
         <div className="my-2 text-5xl font-black">
-          {s.correct}
+          {correct}
           {s.mode !== 'RUSH' && <span className="text-2xl text-hint"> / {s.answered}</span>}
         </div>
-        <div className="mb-4 flex justify-center gap-2">
-          <Badge color={s.ratingDelta >= 0 ? '#16a34a' : '#dc2626'}>
-            {t('session.ratingChange')}: {fmtDelta(s.ratingDelta)}
-          </Badge>
-          {s.mode !== 'RUSH' && <Badge>{accuracy}%</Badge>}
+        {s.mode !== 'RUSH' && (
+          <div className="mb-3 flex justify-center">
+            <Badge>{accuracy}%</Badge>
+          </div>
+        )}
+        <div className="mb-4">
+          <ScoreBreakdown b={s.breakdown} total={s.ratingDelta} />
         </div>
         <div className="flex flex-col gap-2">
           <Button size="lg" onClick={() => nav(`/session/${s.id}/review`)}>

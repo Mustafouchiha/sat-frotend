@@ -19,9 +19,9 @@ interface Stats {
 
 const LINKS: Array<[string, string, string, string]> = [
   ['/admin/templates', '📚', 'Savollar banki', 'Shablonlar, preview, avto-tekshiruv, AI'],
-  ['/admin/ai', '🤖', 'AI savol generatori', "Math va English: mavzu yoki eski test bo'yicha yangi savollar, xarajat"],
+  ['/admin/ai', '🤖', 'AI: chat va xarajat', 'AI ustoz, English variantlari, kunlik byudjet va sozlamalar'],
   ['/admin/templates/new', '➕', 'Yangi shablon', "Savol qo'shish yoki tayyor testdan yasash"],
-  ['/admin/tests', '📝', 'Testlar', 'Mock, bo\'lim, mavzu testlari'],
+  ['/admin/tests', '📝', 'Testlar', "Mock, bo'lim, mavzu testlari; tayyor test JSON'dan"],
   ['/teacher', '👥', 'Guruhlar', 'Guruhlar, taklif kodlari, tahlil'],
   ['/admin/users', '🧑‍💼', 'Foydalanuvchilar', 'Rollar va holat'],
   ['/admin/reports', '⚠️', 'Shikoyatlar', '"Savolda xato bor" xabarlari'],
